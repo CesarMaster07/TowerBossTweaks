@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Capturable Human Bosses Tweaks</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#21262d;--line:#30363d;--txt:#e6edf3;--muted:#8b949e;--blue:#58a6ff;--green:#238636;--red:#f85149}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px system-ui,sans-serif}
+header{padding:22px 28px;border-bottom:1px solid var(--line)}h1{margin:0 0 4px;font-size:24px}.muted{color:var(--muted)}
+main{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 84px)}
+aside{padding:16px;border-right:1px solid var(--line);overflow:auto}.drop{padding:18px;text-align:center;border:1px dashed var(--line);border-radius:10px;background:var(--panel);margin-bottom:16px}.drop.drag{border-color:var(--blue)}
+input,select,textarea,button{font:inherit}button,.filebtn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:7px;padding:8px 12px;cursor:pointer}.primary{background:var(--green);border-color:#2ea043}.danger{background:#3d1518;border-color:var(--red)}
+input[type=file]{display:none}.title{margin:18px 0 7px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.navbtn{display:block;width:100%;text-align:left;margin:4px 0;background:transparent;border-color:transparent}.navbtn:hover,.navbtn.active{background:#1f6feb33;border-color:#1f6feb}
+section{padding:20px;min-width:0}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.status{margin-left:auto;padding:8px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}.card h2{font-size:15px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;padding:12px}
+.field{background:#11161d;border:1px solid #252c35;border-radius:8px;padding:10px}.field label{display:block;font-weight:600;margin-bottom:6px}.type{font-size:11px;color:var(--muted);font-weight:400}
+input[type=text],input[type=number],textarea,select{width:100%;background:#0d1117;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:7px 8px}textarea{min-height:90px;font:12px monospace;resize:vertical}
+.empty{padding:45px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
+.skill-group{display:flex;gap:10px;background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--line);align-items:center;}
+.skill-group .field{flex:1;background:transparent;border:none;padding:0;}
+.skill-group .field:nth-child(2){flex:2;}
+details.group-details { background:var(--panel); margin: 12px; border: 1px solid var(--line); border-radius: 8px; overflow:hidden;}
+details.group-details summary { padding: 12px 16px; font-weight: 600; cursor: pointer; user-select: none; background: var(--panel2); }
+details.group-details[open] summary { border-bottom: 1px solid var(--line); }
+@media(max-width:800px){main{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line);max-height:330px} .skill-group{flex-direction:column;align-items:stretch;}}
+</style>
+</head>
+<body>
+<header><h1>Capturable Human Bosses Tweaks</h1><div class="muted">Edit Boss Parameters, Skills, and Attributes easily. Files are never uploaded.</div></header>
+<main><aside>
+<div id="drop" class="drop"><b>Load a JSON file</b><br><span class="muted">Drag & drop or choose one</span><br><br>
+<label class="filebtn primary">Choose JSON<input id="file" type="file" accept=".json,application/json"></label></div>
+<div id="nav"></div>
+</aside><section>
+<div class="toolbar"><button id="download" class="primary" disabled>Download JSON</button><button id="reset" class="danger" disabled>Reset</button><span id="status" class="status">No file loaded</span></div>
+<div id="editor" class="empty">Load the <code>HumanTowerBoss.json</code> file to begin.</div>
+</section></main>
+<script>
+let data=null,original=null,fileName="configured.json",table=null,row=null;
+const $=x=>document.getElementById(x), clone=x=>JSON.parse(JSON.stringify(x));
+const typ=x=>x===null?"null":Array.isArray(x)?"array":typeof x;
+function setv(path,v){let o=data;for(let i=0;i<path.length-1;i++)o=o[path[i]];o[path.at(-1)]=v}
+
+// UI Mapping Dictionaries
+const tableNames = {
+    "DT_PalHumanParameter": "Human Parameters",
+    "DT_PassiveSkill_Main": "Passive Skills",
+    "DT_WazaMasterLevel": "Learned Skills (Level Up)"
+};
+
+const palNames = {
+    "GrassBoss": "Zoe",
+    "ForestBoss": "Lily",
+    "ElectricBoss": "Marcus",
+    "DesertBoss": "Axel",
+    "SnowBoss": "Victor",
+    "SakurajimaBoss": "Saya",
+    "VikingBoss": "Bjorn",
+    "Female_SurveyWoman02": "Auri",
+    "Female_SurveyGirl02": "Zenara"
+};
+
+const friendlyFieldNames = {
+    "WorkSuitability_EmitFlame": "Kindling",
+    "WorkSuitability_Watering": "Watering",
+    "WorkSuitability_Seeding": "Planting",
+    "WorkSuitability_GenerateElectricity": "Generating Electricity",
+    "WorkSuitability_Collection": "Gathering",
+    "WorkSuitability_Deforest": "Lumbering",
+    "WorkSuitability_Mining": "Mining",
+    "WorkSuitability_ProductMedicine": "Medicine Production",
+    "WorkSuitability_Cool": "Cooling",
+    "WorkSuitability_Transport": "Transporting",
+    "WorkSuitability_Handcraft": "Handiwork"
+};
+
+const emojis = {
+    "WorkSuitability_EmitFlame": "🔥", "WorkSuitability_Watering": "💧", "WorkSuitability_Seeding": "🌱",
+    "WorkSuitability_GenerateElectricity": "⚡", "WorkSuitability_Handcraft": "🛠️", "WorkSuitability_Collection": "🧺",
+    "WorkSuitability_Deforest": "🪓", "WorkSuitability_Mining": "⛏️", "WorkSuitability_ProductMedicine": "💊", 
+    "WorkSuitability_Cool": "❄️", "WorkSuitability_Transport": "📦"
+};
+
+const elements = [
+    "EPalElementType::None", "EPalElementType::Normal", "EPalElementType::Fire", "EPalElementType::Water",
+    "EPalElementType::Leaf", "EPalElementType::Electricity", "EPalElementType::Ice", "EPalElementType::Earth",
+    "EPalElementType::Dark", "EPalElementType::Dragon"
+];
+
+// Grouping mappings for Human Parameters
+const paramGroups = {
+    "Stats": ["Hp","MeleeAttack","ShotAttack","Defense","CraftSpeed","ElementType1","ElementType2"],
+    "Friendship": ["Friendship_HP","Friendship_ShotAttack","Friendship_Defense","Friendship_CraftSpeed"],
+    "Work Suitability": [
+        "WorkSuitability_EmitFlame","WorkSuitability_GenerateElectricity","WorkSuitability_Watering",
+        "WorkSuitability_Collection","WorkSuitability_Seeding","WorkSuitability_Deforest",
+        "WorkSuitability_Mining","WorkSuitability_ProductMedicine","WorkSuitability_Cool",
+        "WorkSuitability_Transport","WorkSuitability_Handcraft"
+    ]
+};
+
+function getTooltip(key) {
+    if(key.startsWith("WorkSuitability_")) return "Level of suitability for this base job (0 = none, higher = faster).";
+    if(key.startsWith("Friendship_")) return "Stat multiplier/bonus scaled by friendship level.";
+    const tooltips = {
+        Hp: "Base Health Points of the boss.",
+        MeleeAttack: "Base Melee Attack Power.",
+        ShotAttack: "Base Ranged/Gun Attack Power.",
+        Defense: "Base Defense Power.",
+        CraftSpeed: "How fast the NPC crafts items in the base.",
+        ElementType1: "The primary elemental typing of the NPC.",
+        ElementType2: "The secondary elemental typing of the NPC.",
+        PassiveSkill1: "The guaranteed passive skill ID given to this boss.",
+        OverrideNameTextID: "The UI string ID used for their in-game display name.",
+        Weapon: "The weapon class ID equipped by the boss.",
+        Level: "The level at which the specified skill (Waza) unlocks.",
+        WazaID: "The specific Palworld skill ID."
+    };
+    return tooltips[key] || `Value for ${key}`;
+}
+
+function nav(){
+ const n=$("nav");n.innerHTML="";if(!data)return;
+ const h=document.createElement("div");h.className="title";h.textContent="Data Tables";n.append(h);
+ Object.keys(data).forEach(t=>{
+    if(t === "DT_PalCharacterIconDataTable") return; // Skip icons
+    const b=document.createElement("button");
+    b.className="navbtn "+(table===t?"active":"");
+    b.textContent = tableNames[t] || t; 
+    b.onclick=()=>{table=t;row=null;nav();edit()};
+    n.append(b)
+ });
+ if(!table||!data[table])return;
+ const h2=document.createElement("div");h2.className="title";h2.textContent="Rows";n.append(h2);
+ 
+ const list=document.createElement("div");n.append(list);
+ const draw=()=>{
+    list.innerHTML="";
+    let keysToDraw = [];
+    
+    // If viewing skills, group by unique PalId
+    if(table === "DT_WazaMasterLevel") {
+        const p = new Set();
+        Object.values(data[table]).forEach(v => p.add(v.PalId));
+        keysToDraw = Array.from(p);
+    } else {
+        keysToDraw = Object.keys(data[table]);
+    }
+
+    keysToDraw.forEach(r=>{
+        const b=document.createElement("button");
+        b.className="navbtn "+(row===r?"active":"");
+        b.textContent = palNames[r] || r; // Apply friendly naming
+        b.onclick=()=>{row=r;nav();edit()};
+        list.append(b)
+    })
+ };
+ draw();
+}
+
+function field(k,v,path){
+ const d=document.createElement("div");d.className="field";
+ d.title = getTooltip(k);
+ 
+ const l=document.createElement("label");
+ const mappedName = friendlyFieldNames[k] || k;
+ const displayName = mappedName + (emojis[k] ? " " + emojis[k] : "");
+ l.textContent=displayName+" ";
+ 
+ const t=document.createElement("span");t.className="type";t.textContent=typ(v);l.append(t);d.append(l);
+ 
+ if(typeof v==="boolean"){
+    const i=document.createElement("input");i.type="checkbox";i.checked=v;i.onchange=()=>setv(path,i.checked);d.append(i)
+ }
+ else if(typeof v==="number"){
+    const i=document.createElement("input");i.type="number";i.step=Number.isInteger(v)?"1":"any";i.value=v;i.oninput=()=>setv(path,i.value===""?0:Number(i.value));d.append(i)
+ }
+ else if(k === "ElementType1" || k === "ElementType2"){
+    const s = document.createElement("select");
+    elements.forEach(el => {
+        const opt = document.createElement("option");
+        opt.value = el; opt.textContent = el;
+        if(v === el) opt.selected = true;
+        s.append(opt);
+    });
+    if(!elements.includes(v)) {
+        const opt = document.createElement("option");
+        opt.value = v; opt.textContent = v; opt.selected = true;
+        s.append(opt);
+    }
+    s.onchange = () => setv(path, s.value);
+    d.append(s);
+ }
+ else if(typeof v==="string"){
+    const i=document.createElement("input");i.type="text";i.value=v;i.oninput=()=>setv(path,i.value);d.append(i)
+ }
+ else{
+    const a=document.createElement("textarea");a.value=JSON.stringify(v,null,2);
+    a.onchange=()=>{try{setv(path,JSON.parse(a.value));a.style.borderColor=""}catch(e){a.style.borderColor="var(--red)"}};d.append(a)
+ }
+ return d;
+}
+
+function edit(){
+ const e=$("editor");if(!data){e.className="empty";e.textContent="Load the HumanTowerBoss.json file to begin.";return}
+ if(!table){e.className="empty";e.textContent="Choose a Data Table from the sidebar.";return}
+ if(!row){e.className="empty";e.textContent="Choose a row to begin editing.";return}
+ e.className="";e.innerHTML="";const c=document.createElement("div");c.className="card";
+ 
+ const uiRowName = palNames[row] || row;
+
+ if(table === "DT_WazaMasterLevel") {
+    // Collect all skills for the selected Pal
+    const skillKeys = Object.keys(data[table]).filter(k => data[table][k].PalId === row);
+    
+    const h=document.createElement("h2");
+    h.innerHTML=`<span>${tableNames[table]} → ${uiRowName}</span><span class='muted'>${skillKeys.length} skills</span>`;
+    c.append(h);
+    
+    const g=document.createElement("div");
+    g.className="grid"; 
+    g.style.gridTemplateColumns = "1fr"; // Stack vertically
+    
+    skillKeys.forEach(sk => {
+        const sg = document.createElement("div");
+        sg.className = "skill-group";
+        sg.append(field("Level", data[table][sk].Level, [table, sk, "Level"]));
+        sg.append(field("WazaID", data[table][sk].WazaID, [table, sk, "WazaID"]));
+        g.append(sg);
+    });
+    c.append(g);
+ } else if(table === "DT_PalHumanParameter") {
+    // Collapsible Groups for Human Parameters
+    let visibleParamsCount = 0;
+    
+    const sections = {
+        "General": document.createElement("div"), // Catch-all for remaining params like Weapon, PassiveSkill
+        "Stats": document.createElement("div"),
+        "Friendship": document.createElement("div"),
+        "Work Suitability": document.createElement("div")
+    };
+    
+    // Initialize details and grids
+    Object.keys(sections).forEach(title => {
+        const details = document.createElement("details");
+        details.open = true; // Open by default
+        details.className = "group-details";
+        const summary = document.createElement("summary");
+        summary.textContent = title;
+        const grid = document.createElement("div");
+        grid.className = "grid";
+        details.append(summary, grid);
+        sections[title] = { container: details, grid: grid, count: 0 };
+    });
+
+    Object.entries(data[table][row]||{}).forEach(([k,v])=>{
+        // Hide unused parameters completely from the UI
+        if(k === "WorkSuitability_MonsterFarm" || k === "WorkSuitability_OilExtraction" || k === "Support") return;
+        
+        let targetGroup = "General";
+        if(paramGroups.Stats.includes(k)) targetGroup = "Stats";
+        else if(paramGroups.Friendship.includes(k)) targetGroup = "Friendship";
+        else if(paramGroups["Work Suitability"].includes(k)) targetGroup = "Work Suitability";
+        
+        sections[targetGroup].grid.append(field(k,v,[table,row,k]));
+        sections[targetGroup].count++;
+        visibleParamsCount++;
+    });
+
+    const h=document.createElement("h2");
+    h.innerHTML=`<span>${tableNames[table] || table} → ${uiRowName}</span><span class='muted'>${visibleParamsCount} parameters</span>`;
+    c.append(h);
+    
+    // Only append sections that actually have fields
+    Object.keys(sections).forEach(title => {
+        if(sections[title].count > 0) c.append(sections[title].container);
+    });
+
+ } else {
+    // Standard single grid logic for other tables like DT_PassiveSkill_Main
+    const h=document.createElement("h2");
+    h.innerHTML=`<span>${tableNames[table] || table} → ${uiRowName}</span><span class='muted'>${Object.keys(data[table][row]||{}).length} parameters</span>`;
+    c.append(h);
+    const g=document.createElement("div");g.className="grid";
+    Object.entries(data[table][row]||{}).forEach(([k,v])=>g.append(field(k,v,[table,row,k])));
+    c.append(g);
+ }
+ 
+ e.append(c);
+ $("status").textContent="Editing " + (tableNames[table] || table) + " / "+ uiRowName;
+}
+
+function load(text,name){try{const x=JSON.parse(text);if(!x||Array.isArray(x)||typeof x!=="object")throw Error("Root must be an object");data=x;original=clone(x);fileName=name.replace(/\.json$/i,"")+"_configured.json";table=Object.keys(x)[0]||null;row=null;["download","reset"].forEach(id=>$(id).disabled=false);nav();edit();$("status").textContent="Loaded "+name}catch(e){alert("Invalid JSON: "+e.message)}}
+$("file").onchange=e=>{const f=e.target.files[0];if(f)f.text().then(t=>load(t,f.name))};
+const d=$("drop");["dragenter","dragover"].forEach(x=>d.addEventListener(x,e=>{e.preventDefault();d.classList.add("drag")}));["dragleave","drop"].forEach(x=>d.addEventListener(x,e=>{e.preventDefault();d.classList.remove("drag")}));d.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)f.text().then(t=>load(t,f.name))});
+
+$("download").onclick=()=>{
+    // Force specific dead suitabilities to always output as 0 on save
+    if(data && data.DT_PalHumanParameter) {
+        Object.keys(data.DT_PalHumanParameter).forEach(palId => {
+            if(data.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm !== undefined) {
+                data.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm = 0;
+            }
+            if(data.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction !== undefined) {
+                data.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction = 0;
+            }
+        });
+    }
+
+    const b=new Blob([JSON.stringify(data,null,2)+"\n"],{type:"application/json"}),a=document.createElement("a");
+    a.href=URL.createObjectURL(b);a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+};
+
+$("reset").onclick=()=>{if(confirm("Discard all changes?")){data=clone(original);nav();edit();$("status").textContent="Changes reset"}};
+</script>
+</body>
+</html>
