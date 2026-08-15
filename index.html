@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Capturable Human Bosses Tweaks</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#21262d;--line:#30363d;--txt:#e6edf3;--muted:#8b949e;--blue:#58a6ff;--green:#238636;--red:#f85149}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px system-ui,sans-serif}
+header{padding:22px 28px;border-bottom:1px solid var(--line)}h1{margin:0 0 4px;font-size:24px}.muted{color:var(--muted)}
+
+main { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 84px); transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+main.collapsed { grid-template-columns: 80px 1fr; }
+
+aside { padding: 16px; border-right: 1px solid var(--line); overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; transition: padding 0.3s; }
+.sidebar-header { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.collapse-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+.collapse-btn:hover { background: var(--panel2); color: var(--txt); }
+
+.drop{padding:18px;text-align:center;border:1px dashed var(--line);border-radius:10px;background:var(--panel);margin-bottom:16px; transition: padding 0.3s; }.drop.drag{border-color:var(--blue)}
+main.collapsed .drop { padding: 12px 0; cursor: pointer; }
+main.collapsed .drop-text { display: none; }
+main.collapsed .drop::before { content: '📁'; font-size: 24px; }
+
+input,select,textarea,button{font:inherit}button,.filebtn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:7px;padding:8px 12px;cursor:pointer}.primary{background:var(--green);border-color:#2ea043}.danger{background:#3d1518;border-color:var(--red)}
+input[type=file]{display:none}.title{margin:18px 0 7px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em; transition: opacity 0.2s; white-space: nowrap; }
+main.collapsed .title { opacity: 0; pointer-events: none; height: 0; margin: 0; overflow: hidden; }
+
+.navbtn{display:flex;align-items:center;justify-content:flex-start;width:100%;text-align:left;margin:4px 0;background:transparent;border-color:transparent;padding:6px 10px;border-radius:6px;cursor:pointer;color:var(--txt);border:1px solid transparent; transition: padding 0.3s, justify-content 0.3s; overflow: hidden;}
+.navbtn:hover,.navbtn.active{background:#1f6feb33;border-color:#1f6feb}
+.btn-icon { font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 28px; }
+.btn-text { margin-left: 8px; white-space: nowrap; transition: opacity 0.2s; }
+
+main.collapsed .navbtn { justify-content: center; padding: 10px; }
+main.collapsed .btn-text { display: none; }
+main.collapsed .btn-icon { margin: 0; font-size: 20px; width: auto; }
+
+.npc-icon-sm{width:40px;height:40px;border-radius:50%;object-fit:cover;border:1px solid var(--line);flex-shrink:0;}
+main.collapsed .npc-icon-sm { width: 32px; height: 32px; }
+
+section{padding:20px;min-width:0; overflow-x: hidden; }.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.status{margin-left:auto;padding:8px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}.card h2{font-size:15px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;padding:12px}
+.field{background:#11161d;border:1px solid #252c35;border-radius:8px;padding:10px}.field label{display:block;font-weight:600;margin-bottom:6px}.type{font-size:11px;color:var(--muted);font-weight:400}
+input[type=text],input[type=number],textarea,select{width:100%;background:#0d1117;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:7px 8px}textarea{min-height:90px;font:12px monospace;resize:vertical}
+.empty{padding:45px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
+.skill-group{display:flex;gap:10px;background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--line);align-items:center;}
+.skill-group .field{flex:1;background:transparent;border:none;padding:0;}
+.skill-group .field:nth-child(2){flex:2;}
+details.group-details { background:var(--panel); margin: 0 0 12px 0; border: 1px solid var(--line); border-radius: 8px; overflow:hidden;}
+details.group-details summary { padding: 12px 16px; font-weight: 600; cursor: pointer; user-select: none; background: var(--panel2); }
+details.group-details[open] summary { border-bottom: 1px solid var(--line); }
+
+/* Live Preview UI - Shared Layout */
+.editor-layout { display: flex; gap: 20px; padding: 16px; flex-wrap: wrap; align-items: flex-start; }
+.editor-fields { flex: 1; min-width: 300px; }
+
+/* Live Preview UI - Human Parameters */
+.pal-preview { background: #12141a; border: 1px solid #282c34; border-radius: 10px; width: 340px; color: #fff; font-family: system-ui, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.5); overflow: hidden; flex-shrink: 0; }
+.pal-preview-header { display: flex; align-items: center; border-bottom: 2px solid #20242b; padding: 14px 16px; background: #171a21; }
+.pal-preview-lvl { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 50px; border-right: 1px solid #333; margin-right: 16px; padding-right: 16px; }
+.pal-preview-lvl span:first-child { font-size: 10px; color: #888; letter-spacing: 1px; }
+.pal-preview-lvl span:last-child { font-size: 28px; font-weight: bold; }
+.pal-preview-name-container { display: flex; align-items: center; justify-content: space-between; flex-grow: 1; }
+.pal-preview-name { font-size: 22px; font-weight: 500; }
+.pal-preview-icon-lg { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 2px solid #30363d; background: #0d1117; }
+.pal-preview-body { padding: 16px; }
+.pal-bar-container { background: #222; border-radius: 4px; height: 20px; display: flex; align-items: center; padding: 0 8px; margin-bottom: 8px; position: relative; overflow: hidden;}
+.pal-bar-fill { position: absolute; left: 0; top: 0; height: 100%; z-index: 1; }
+.pal-bar-fill.hp { background: #2ecc71; width: 100%; }
+.pal-bar-text { position: relative; z-index: 2; font-size: 13px; font-weight: bold; width: 100%; text-align: right; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+.pal-bar-icon { position: relative; z-index: 2; margin-right: 8px; font-size: 12px; }
+.pal-stat-row { display: flex; justify-content: space-between; padding: 6px 4px; font-size: 15px; border-bottom: 1px solid #1f2229; }
+.pal-stat-row:last-child { border-bottom: none; }
+.pal-suitability-box { background: #0b0c10; border: 1px solid #1f2229; border-radius: 6px; margin-top: 16px; }
+.pal-suitability-title { font-size: 11px; padding: 10px 12px; color: #aaa; font-weight: bold; letter-spacing: 0.5px; border-bottom: 1px solid #1f2229; }
+.pal-suitability-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.pal-suitability-item { display: flex; justify-content: space-between; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #1a1c22; border-right: 1px solid #1a1c22; }
+.pal-suitability-item:nth-child(even) { border-right: none; }
+.pal-suitability-val { font-weight: bold; color: #fff; }
+.pal-suitability-val.zero { color: #555; }
+
+/* Live Preview UI - Passive Skills */
+.passive-preview { background: #13171c; border: 1px solid #33404c; border-radius: 4px; width: 340px; color: #cbd5e1; font-family: system-ui, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.5); overflow: hidden; flex-shrink: 0; line-height: 1.6; }
+.passive-preview-header { padding: 12px 16px; background: #263442; font-size: 16px; font-weight: 600; color: #f1f5f9; border-bottom: 1px solid #33404c; }
+.passive-preview-body { padding: 16px; font-size: 14.5px; }
+.passive-preview-cyan { color: #38bdf8; font-weight: bold; }
+
+@media(max-width:800px){main{grid-template-columns:1fr} aside{border-right:0;border-bottom:1px solid var(--line);max-height:330px} .sidebar-header{display:none;} main.collapsed{grid-template-columns:1fr;} .skill-group{flex-direction:column;align-items:stretch;} .pal-preview, .passive-preview { width: 100%; } }
+</style>
+</head>
+<body>
+<header><h1>Capturable Human Bosses Tweaks</h1><div class="muted">Edit Boss Parameters, Skills, and Attributes easily. Files are never uploaded.</div></header>
+<main id="main-layout"><aside>
+<div class="sidebar-header"><button id="toggleSidebar" class="collapse-btn" title="Toggle Sidebar">◫</button></div>
+<div id="drop" class="drop" onclick="document.getElementById('file').click()">
+    <div class="drop-text"><b>Load a JSON file</b><br><span class="muted">Drag & drop or choose one</span><br><br>
+    <label class="filebtn primary">Choose JSON</label></div>
+    <input id="file" type="file" accept=".json,application/json" onclick="event.stopPropagation()">
+</div>
+<div id="nav"></div>
+</aside><section>
+<div class="toolbar"><button id="download" class="primary" disabled>Download JSON</button><button id="reset" class="danger" disabled>Reset</button><span id="status" class="status">No file loaded</span></div>
+<div id="editor" class="empty">Load the <code>HumanTowerBoss.json</code> file to begin.</div>
+</section></main>
+<script>
+let data=null,original=null,fileName="configured.json",table=null,row=null;
+const $=x=>document.getElementById(x), clone=x=>JSON.parse(JSON.stringify(x));
+const typ=x=>x===null?"null":Array.isArray(x)?"array":typeof x;
+
+$('toggleSidebar').onclick = () => {
+    $('main-layout').classList.toggle('collapsed');
+};
+
+function getIconForTarget(rName) {
+    if(!rName) return "";
+    if(palIcons[rName]) return palIcons[rName];
+    // Fallback for sub-tables like DT_PassiveSkill_Main
+    for (let key in palNames) {
+        if (rName.includes(palNames[key]) || rName.includes(key)) {
+            return palIcons[key];
+        }
+    }
+    return "";
+}
+
+function setv(path,v){
+    let o=data;
+    for(let i=0;i<path.length-1;i++)o=o[path[i]];
+    o[path.at(-1)]=v;
+    if(table === "DT_PalHumanParameter" || table === "DT_PassiveSkill_Main") updatePreview();
+}
+
+// UI Mapping Dictionaries
+const tableNames = {
+    "DT_PalHumanParameter": "Human Parameters",
+    "DT_PassiveSkill_Main": "Passive Skills",
+    "DT_WazaMasterLevel": "Learned Skills (Level Up)"
+};
+const tableIcons = {
+    "DT_PalHumanParameter": "⚙️",
+    "DT_PassiveSkill_Main": "🧬",
+    "DT_WazaMasterLevel": "📖"
+};
+
+const palNames = {
+    "GrassBoss": "Zoe",
+    "ForestBoss": "Lily",
+    "ElectricBoss": "Axel",
+    "DesertBoss": "Marcus",
+    "SnowBoss": "Victor",
+    "SakurajimaBoss": "Saya",
+    "VikingBoss": "Bjorn",
+    "Female_SurveyWoman02": "Auri",
+    "Female_SurveyGirl02": "Zenara"
+};
+
+const palIcons = {
+    "GrassBoss": "Zoe.png",
+    "ForestBoss": "Lily.png",
+    "ElectricBoss": "Axel.png",
+    "DesertBoss": "Marcus.png",
+    "SnowBoss": "Victor.png",
+    "SakurajimaBoss": "Saya.png",
+    "VikingBoss": "Bjorn.png",
+    "Female_SurveyWoman02": "Auri.png",
+    "Female_SurveyGirl02": "Zenara.png"
+};
+
+const effectNameMap = {
+    "EPalPassiveSkillEffectType::MaxHP": "Max Health",
+    "EPalPassiveSkillEffectType::MeleeAttack": "Melee Attack",
+    "EPalPassiveSkillEffectType::ShotAttack": "Attack",
+    "EPalPassiveSkillEffectType::Defense": "Defense",
+    "EPalPassiveSkillEffectType::Support": "Support",
+    "EPalPassiveSkillEffectType::CraftSpeed": "Work Speed",
+    "EPalPassiveSkillEffectType::MoveSpeed": "Move Speed",
+    "EPalPassiveSkillEffectType::NonElementAttack": "Neutral Damage",
+    "EPalPassiveSkillEffectType::FireAttack": "Fire Damage",
+    "EPalPassiveSkillEffectType::WaterAttack": "Water Damage",
+    "EPalPassiveSkillEffectType::LeafAttack": "Grass Damage",
+    "EPalPassiveSkillEffectType::ElectricityAttack": "Lightning Damage",
+    "EPalPassiveSkillEffectType::IceAttack": "Ice Damage",
+    "EPalPassiveSkillEffectType::EarthAttack": "Ground Damage",
+    "EPalPassiveSkillEffectType::DarkAttack": "Dark Damage",
+    "EPalPassiveSkillEffectType::DragonAttack": "Dragon Damage",
+    "EPalPassiveSkillEffectType::WorldTreeDecayImmunity": "WorldTreeDecayImmunity"
+};
+
+const friendlyFieldNames = {
+    "WorkSuitability_EmitFlame": "Kindling",
+    "WorkSuitability_Watering": "Watering",
+    "WorkSuitability_Seeding": "Planting",
+    "WorkSuitability_GenerateElectricity": "Generating Electricity",
+    "WorkSuitability_Collection": "Gathering",
+    "WorkSuitability_Deforest": "Lumbering",
+    "WorkSuitability_Mining": "Mining",
+    "WorkSuitability_ProductMedicine": "Medicine Production",
+    "WorkSuitability_Cool": "Cooling",
+    "WorkSuitability_Transport": "Transporting",
+    "WorkSuitability_Handcraft": "Handiwork"
+};
+
+const emojis = {
+    "WorkSuitability_EmitFlame": "🔥", "WorkSuitability_Watering": "💧", "WorkSuitability_Seeding": "🌱",
+    "WorkSuitability_GenerateElectricity": "⚡", "WorkSuitability_Handcraft": "🛠️", "WorkSuitability_Collection": "🧺",
+    "WorkSuitability_Deforest": "🪓", "WorkSuitability_Mining": "⛏️", "WorkSuitability_ProductMedicine": "💊", 
+    "WorkSuitability_Cool": "❄️", "WorkSuitability_Transport": "📦", "Hp": "❤️", "MeleeAttack": "⚔️", "Defense": "🛡️", "CraftSpeed": "🔨"
+};
+
+const elements = [
+    "EPalElementType::None", "EPalElementType::Normal", "EPalElementType::Fire", "EPalElementType::Water",
+    "EPalElementType::Leaf", "EPalElementType::Electricity", "EPalElementType::Ice", "EPalElementType::Earth",
+    "EPalElementType::Dark", "EPalElementType::Dragon"
+];
+
+const effectTypes = [
+    "EPalPassiveSkillEffectType::None", "EPalPassiveSkillEffectType::MaxHP", 
+    "EPalPassiveSkillEffectType::MeleeAttack", "EPalPassiveSkillEffectType::ShotAttack", 
+    "EPalPassiveSkillEffectType::Defense", "EPalPassiveSkillEffectType::Support", 
+    "EPalPassiveSkillEffectType::CraftSpeed", "EPalPassiveSkillEffectType::MoveSpeed", 
+    "EPalPassiveSkillEffectType::NonElementAttack", "EPalPassiveSkillEffectType::FireAttack", 
+    "EPalPassiveSkillEffectType::WaterAttack", "EPalPassiveSkillEffectType::LeafAttack", 
+    "EPalPassiveSkillEffectType::ElectricityAttack", "EPalPassiveSkillEffectType::IceAttack", 
+    "EPalPassiveSkillEffectType::EarthAttack", "EPalPassiveSkillEffectType::DarkAttack", 
+    "EPalPassiveSkillEffectType::DragonAttack", "EPalPassiveSkillEffectType::WorldTreeDecayImmunity"
+];
+
+const targetTypes = [
+    "EPalPassiveSkillEffectTargetType::ToSelf", 
+    "EPalPassiveSkillEffectTargetType::ToTrainer", 
+    "EPalPassiveSkillEffectTargetType::ToSelfAndTrainer"
+];
+
+const paramGroups = {
+    "Stats": ["Hp","MeleeAttack","ShotAttack","Defense","CraftSpeed","ElementType1","ElementType2"],
+    "Friendship": ["Friendship_HP","Friendship_ShotAttack","Friendship_Defense","Friendship_CraftSpeed"],
+    "Work Suitability": [
+        "WorkSuitability_EmitFlame","WorkSuitability_Watering","WorkSuitability_Seeding",
+        "WorkSuitability_GenerateElectricity","WorkSuitability_Handcraft","WorkSuitability_Collection",
+        "WorkSuitability_Deforest","WorkSuitability_Mining","WorkSuitability_ProductMedicine",
+        "WorkSuitability_Cool","WorkSuitability_Transport"
+    ]
+};
+
+function getTooltip(key) {
+    if(key.startsWith("WorkSuitability_")) return "Level of suitability for this base job (0 = none, higher = faster).";
+    if(key.startsWith("Friendship_")) return "Stat multiplier/bonus scaled by friendship level.";
+    if(key.startsWith("EffectValue")) return "The numerical bonus for this passive trait.";
+    if(key === "OverrideDescMsgID") return "The template description string. Use {EffectValue1} etc. to reference the dynamic values.";
+    const tooltips = {
+        Hp: "Base Health Points of the boss.",
+        MeleeAttack: "Base Melee Attack Power.",
+        ShotAttack: "Base Ranged/Gun Attack Power.",
+        Defense: "Base Defense Power.",
+        CraftSpeed: "How fast the NPC crafts items in the base."
+    };
+    return tooltips[key] || `Value for ${key}`;
+}
+
+function rebuildPassiveDescription(r) {
+    let pData = data["DT_PassiveSkill_Main"][r];
+    if(!pData) return;
+    let currentDesc = pData.OverrideDescMsgID || "";
+    
+    // Extract the static Lore text
+    let loreText = "";
+    let splitIdx = currentDesc.indexOf("\n\n");
+    if(splitIdx === -1) splitIdx = currentDesc.indexOf("\r\n\r\n");
+    if(splitIdx !== -1) {
+        loreText = currentDesc.substring(splitIdx).trim();
+    } else if (!currentDesc.includes("{EffectValue")) {
+        loreText = currentDesc;
+    }
+
+    // Rebuild Stats
+    let newStats = [];
+    for(let i=1; i<=4; i++) {
+        let eType = pData["EffectType"+i];
+        if(!eType || eType === "EPalPassiveSkillEffectType::None") continue;
+        
+        let eName = effectNameMap[eType] || eType.split("::")[1] || eType;
+        
+        if(eType === "EPalPassiveSkillEffectType::WorldTreeDecayImmunity") {
+            newStats.push(eName);
+        } else {
+            newStats.push(`${eName} +{EffectValue${i}}%`);
+        }
+    }
+
+    let finalDesc = newStats.join("\r\n");
+    if(loreText) {
+        finalDesc += (finalDesc ? "\r\n\r\n" : "") + loreText;
+    }
+    
+    pData.OverrideDescMsgID = finalDesc;
+    
+    const txtArea = document.getElementById("textarea_OverrideDescMsgID");
+    if(txtArea) {
+        txtArea.value = finalDesc;
+    }
+    updatePreview();
+}
+
+function updatePreview() {
+    if(table === "DT_PalHumanParameter") {
+        if(!document.getElementById("preview-hp-text")) return;
+        const pData = data[table][row] || {};
+        
+        $("preview-hp-text").textContent = (pData.Hp || 0) + " / " + (pData.Hp || 0);
+        $("preview-atk").textContent = Math.max((pData.MeleeAttack || 0), (pData.ShotAttack || 0));
+        $("preview-def").textContent = pData.Defense || 0;
+        $("preview-work").textContent = pData.CraftSpeed || 0;
+
+        const uiName = pData.OverrideNameTextID || palNames[row] || row;
+        if($("preview-name")) $("preview-name").textContent = uiName;
+
+        const iconEl = document.getElementById("preview-icon-img");
+        if(iconEl) {
+            const currentIconSrc = getIconForTarget(row);
+            if(currentIconSrc) {
+                iconEl.src = currentIconSrc;
+                iconEl.style.display = "";
+            } else {
+                iconEl.style.display = "none";
+            }
+        }
+
+        paramGroups["Work Suitability"].forEach(k => {
+            const val = pData[k] || 0;
+            const el = document.getElementById("preview-suit-" + k);
+            if(el) {
+                if(val > 0) {
+                    el.textContent = val;
+                    el.className = "pal-suitability-val";
+                } else {
+                    el.textContent = "-";
+                    el.className = "pal-suitability-val zero";
+                }
+            }
+        });
+    } else if (table === "DT_PassiveSkill_Main") {
+        const pData = data[table][row] || {};
+        if($("preview-passive-title")) $("preview-passive-title").textContent = pData.OverrideNameTextID || "None";
+        
+        const descEl = $("preview-passive-desc");
+        if(descEl) {
+            let desc = pData.OverrideDescMsgID || "";
+            for(let i=1; i<=4; i++) {
+                let val = pData["EffectValue"+i] !== undefined ? pData["EffectValue"+i] : 0;
+                desc = desc.replace(new RegExp(`\\{EffectValue${i}\\}`, 'g'), `<span class="passive-preview-cyan">${val}</span>`);
+            }
+            desc = desc.replace(/\r\n|\n/g, "<br>");
+            descEl.innerHTML = desc;
+        }
+    }
+}
+
+function buildHumanPreviewBox() {
+    const pData = data[table][row] || {};
+    const uiName = pData.OverrideNameTextID || palNames[row] || row;
+    const iconSrc = getIconForTarget(row);
+    
+    let html = `
+    <div class="pal-preview">
+        <div class="pal-preview-header">
+            <div class="pal-preview-lvl"><span>LEVEL</span><span>1</span></div>
+            <div class="pal-preview-name-container">
+                <div class="pal-preview-name" id="preview-name">${uiName}</div>
+                <img src="${iconSrc}" alt="${uiName}" class="pal-preview-icon-lg" id="preview-icon-img" style="${iconSrc ? '' : 'display:none;'}">
+            </div>
+        </div>
+        <div class="pal-preview-body">
+            <div class="pal-bar-container">
+                <div class="pal-bar-fill hp"></div>
+                <span class="pal-bar-icon">❤️</span><span class="pal-bar-text" id="preview-hp-text">${pData.Hp || 0} / ${pData.Hp || 0}</span>
+            </div>
+            
+            <div style="margin: 16px 0;">
+                <div class="pal-stat-row"><span>⚔️ Attack</span><span id="preview-atk">${Math.max((pData.MeleeAttack || 0), (pData.ShotAttack || 0))}</span></div>
+                <div class="pal-stat-row"><span>🛡️ Defense</span><span id="preview-def">${pData.Defense || 0}</span></div>
+                <div class="pal-stat-row"><span>🔨 Work Speed</span><span id="preview-work">${pData.CraftSpeed || 0}</span></div>
+            </div>
+
+            <div class="pal-suitability-box">
+                <div class="pal-suitability-title">WORK SUITABILITY</div>
+                <div class="pal-suitability-grid">
+    `;
+
+    paramGroups["Work Suitability"].forEach(k => {
+        const title = friendlyFieldNames[k];
+        const icon = emojis[k];
+        const val = pData[k] || 0;
+        const valClass = val > 0 ? "pal-suitability-val" : "pal-suitability-val zero";
+        html += `<div class="pal-suitability-item"><span>${icon} ${title}</span><span id="preview-suit-${k}" class="${valClass}">${val > 0 ? val : '-'}</span></div>`;
+    });
+
+    html += `<div class="pal-suitability-item"><span>🛖 Farming</span><span class="pal-suitability-val zero">-</span></div>`;
+
+    html += `</div></div></div></div>`;
+    
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    return wrapper.firstElementChild;
+}
+
+function buildPassivePreviewBox() {
+    const pData = data[table][row] || {};
+    const title = pData.OverrideNameTextID || "Unknown";
+    
+    let html = `
+    <div class="passive-preview">
+        <div class="passive-preview-header" id="preview-passive-title">${title}</div>
+        <div class="passive-preview-body" id="preview-passive-desc">
+            <!-- populated by updatePreview -->
+        </div>
+    </div>
+    `;
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    return wrapper.firstElementChild;
+}
+
+function nav(){
+ const n=$("nav");n.innerHTML="";if(!data)return;
+ const h=document.createElement("div");h.className="title";h.textContent="Data Tables";n.append(h);
+ Object.keys(data).forEach(t=>{
+    if(t === "DT_PalCharacterIconDataTable") return; 
+    const b=document.createElement("button");
+    b.className="navbtn "+(table===t?"active":"");
+    const tName = tableNames[t] || t;
+    b.title = tName; // Tooltip for collapsed view
+    b.innerHTML = `<span class="btn-icon">${tableIcons[t]||"📄"}</span><span class="btn-text">${tName}</span>`;
+    b.onclick=()=>{table=t;row=null;nav();edit()};
+    n.append(b)
+ });
+ if(!table||!data[table])return;
+ const h2=document.createElement("div");h2.className="title";h2.textContent="Rows";n.append(h2);
+ 
+ const list=document.createElement("div");n.append(list);
+ const draw=()=>{
+    list.innerHTML="";
+    let keysToDraw = [];
+    if(table === "DT_WazaMasterLevel") {
+        const p = new Set();
+        Object.values(data[table]).forEach(v => p.add(v.PalId));
+        keysToDraw = Array.from(p);
+    } else {
+        keysToDraw = Object.keys(data[table]);
+    }
+    keysToDraw.forEach(r=>{
+        const b=document.createElement("button");
+        b.className="navbtn "+(row===r?"active":"");
+        
+        let iconSrc = getIconForTarget(r);
+        let uiRowName = palNames[r] || r;
+
+        b.title = uiRowName; 
+        
+        if(iconSrc) {
+            const img = document.createElement("img");
+            img.src = iconSrc;
+            img.alt = uiRowName;
+            img.className = "npc-icon-sm";
+            b.append(img);
+        } else {
+            const fallback = document.createElement("span");
+            fallback.className = "btn-icon";
+            fallback.textContent = table === "DT_PassiveSkill_Main" ? "🧬" : (table === "DT_WazaMasterLevel" ? "📖" : "👤");
+            b.append(fallback);
+        }
+
+        const label = document.createElement("span");
+        label.className = "btn-text";
+        label.textContent = uiRowName;
+        b.append(label);
+
+        b.onclick=()=>{row=r;nav();edit()};
+        list.append(b)
+    })
+ };
+ draw();
+}
+
+function field(k,v,path){
+ const d=document.createElement("div");d.className="field";
+ d.title = getTooltip(k);
+ 
+ const l=document.createElement("label");
+ const mappedName = friendlyFieldNames[k] || k;
+ const displayName = mappedName + (emojis[k] ? " " + emojis[k] : "");
+ l.textContent=displayName+" ";
+ 
+ const t=document.createElement("span");t.className="type";t.textContent=typ(v);l.append(t);d.append(l);
+ 
+ if(typeof v==="boolean"){
+    const i=document.createElement("input");i.type="checkbox";i.checked=v;
+    i.onchange=()=>setv(path,i.checked);d.append(i)
+ }
+ else if(typeof v==="number"){
+    const i=document.createElement("input");i.type="number";i.step=Number.isInteger(v)?"1":"any";i.value=v;
+    i.oninput=()=>{
+        setv(path,i.value===""?0:Number(i.value));
+        if(k.startsWith("EffectValue")) updatePreview();
+    };
+    d.append(i)
+ }
+ else if(k === "ElementType1" || k === "ElementType2"){
+    const s = document.createElement("select");
+    elements.forEach(el => {
+        const opt = document.createElement("option");
+        opt.value = el; opt.textContent = el;
+        if(v === el) opt.selected = true;
+        s.append(opt);
+    });
+    if(!elements.includes(v)) {
+        const opt = document.createElement("option");
+        opt.value = v; opt.textContent = v; opt.selected = true;
+        s.append(opt);
+    }
+    s.onchange = () => setv(path, s.value);
+    d.append(s);
+ }
+ else if(k.startsWith("EffectType")){
+    const s = document.createElement("select");
+    effectTypes.forEach(el => {
+        const opt = document.createElement("option");
+        opt.value = el; 
+        opt.textContent = el.split("::")[1] || el; 
+        if(v === el) opt.selected = true;
+        s.append(opt);
+    });
+    if(!effectTypes.includes(v)) {
+        const opt = document.createElement("option");
+        opt.value = v; 
+        opt.textContent = v.split("::")[1] || v; 
+        opt.selected = true;
+        s.append(opt);
+    }
+    s.onchange = () => {
+        setv(path, s.value);
+        if(table === "DT_PassiveSkill_Main") rebuildPassiveDescription(row);
+    };
+    d.append(s);
+ }
+ else if(k.startsWith("TargetType")){
+    const s = document.createElement("select");
+    targetTypes.forEach(el => {
+        const opt = document.createElement("option");
+        opt.value = el; 
+        opt.textContent = el.split("::")[1] || el; 
+        if(v === el) opt.selected = true;
+        s.append(opt);
+    });
+    if(!targetTypes.includes(v)) {
+        const opt = document.createElement("option");
+        opt.value = v; 
+        opt.textContent = v.split("::")[1] || v; 
+        opt.selected = true;
+        s.append(opt);
+    }
+    s.onchange = () => setv(path, s.value);
+    d.append(s);
+ }
+ else if(typeof v==="string"){
+    if(k === "OverrideDescMsgID") {
+        const a=document.createElement("textarea");
+        a.id = "textarea_OverrideDescMsgID";
+        a.value=v;
+        a.oninput=()=>{setv(path,a.value); updatePreview();};
+        d.append(a);
+    } else {
+        const i=document.createElement("input");i.type="text";i.value=v;
+        i.oninput=()=>{
+            setv(path,i.value);
+            if(k === "OverrideNameTextID") updatePreview();
+        };
+        d.append(i);
+    }
+ }
+ else{
+    const a=document.createElement("textarea");a.value=JSON.stringify(v,null,2);
+    a.onchange=()=>{try{setv(path,JSON.parse(a.value));a.style.borderColor=""}catch(e){a.style.borderColor="var(--red)"}};d.append(a)
+ }
+ return d;
+}
+
+function edit(){
+ const e=$("editor");if(!data){e.className="empty";e.textContent="Load the HumanTowerBoss.json file to begin.";return}
+ if(!table){e.className="empty";e.textContent="Choose a Data Table from the sidebar.";return}
+ if(!row){e.className="empty";e.textContent="Choose a row to begin editing.";return}
+ e.className="";e.innerHTML="";const c=document.createElement("div");c.className="card";
+ 
+ const uiRowName = palNames[row] || row;
+ const iconSrc = getIconForTarget(row);
+
+ if(table === "DT_WazaMasterLevel") {
+    const skillKeys = Object.keys(data[table]).filter(k => data[table][k].PalId === row);
+    const h=document.createElement("h2");
+    h.innerHTML=`<span>${tableNames[table]} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
+    c.append(h);
+    const g=document.createElement("div");
+    g.className="grid"; g.style.gridTemplateColumns = "1fr"; 
+    skillKeys.forEach(sk => {
+        const sg = document.createElement("div");
+        sg.className = "skill-group";
+        sg.append(field("Level", data[table][sk].Level, [table, sk, "Level"]));
+        sg.append(field("WazaID", data[table][sk].WazaID, [table, sk, "WazaID"]));
+        g.append(sg);
+    });
+    c.append(g);
+    e.append(c);
+ } else if(table === "DT_PalHumanParameter") {
+    
+    const h=document.createElement("h2");
+    h.innerHTML=`<span>${tableNames[table]} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
+    c.append(h);
+
+    const layout = document.createElement("div");
+    layout.className = "editor-layout";
+
+    // 1. Setup Preview Panel
+    const previewDom = buildHumanPreviewBox();
+    layout.append(previewDom);
+
+    // 2. Setup Fields Section
+    const fieldsContainer = document.createElement("div");
+    fieldsContainer.className = "editor-fields";
+
+    const sections = {
+        "General": document.createElement("div"),
+        "Stats": document.createElement("div"),
+        "Friendship": document.createElement("div"),
+        "Work Suitability": document.createElement("div")
+    };
+    
+    Object.keys(sections).forEach(title => {
+        const details = document.createElement("details");
+        details.open = true;
+        details.className = "group-details";
+        const summary = document.createElement("summary");
+        summary.textContent = title;
+        const grid = document.createElement("div");
+        grid.className = "grid";
+        details.append(summary, grid);
+        sections[title] = { container: details, grid: grid, count: 0 };
+    });
+
+    Object.entries(data[table][row]||{}).forEach(([k,v])=>{
+        if(k === "WorkSuitability_MonsterFarm" || k === "WorkSuitability_OilExtraction" || k === "Support") return;
+        
+        // Remove Passive Skills from Editing fields on Human Parameters
+        if(k.startsWith("PassiveSkill")) return;
+
+        let targetGroup = "General";
+        if(paramGroups.Stats.includes(k)) targetGroup = "Stats";
+        else if(paramGroups.Friendship.includes(k)) targetGroup = "Friendship";
+        else if(paramGroups["Work Suitability"].includes(k)) targetGroup = "Work Suitability";
+        
+        sections[targetGroup].grid.append(field(k,v,[table,row,k]));
+        sections[targetGroup].count++;
+    });
+
+    Object.keys(sections).forEach(title => {
+        if(sections[title].count > 0) fieldsContainer.append(sections[title].container);
+    });
+
+    layout.append(fieldsContainer);
+    c.append(layout);
+    e.append(c);
+
+    // Initial trigger to populate the preview values correctly
+    updatePreview();
+
+ } else if(table === "DT_PassiveSkill_Main") {
+    
+    const h=document.createElement("h2");
+    h.innerHTML=`<span>${tableNames[table]} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
+    c.append(h);
+
+    const layout = document.createElement("div");
+    layout.className = "editor-layout";
+
+    // Build Preview Panel
+    const previewDom = buildPassivePreviewBox();
+    layout.append(previewDom);
+
+    // Setup Fields Section
+    const fieldsContainer = document.createElement("div");
+    fieldsContainer.className = "editor-fields";
+    const grid = document.createElement("div");
+    grid.className = "grid";
+
+    Object.entries(data[table][row]||{}).forEach(([k,v])=>{
+        grid.append(field(k,v,[table,row,k]));
+    });
+
+    fieldsContainer.append(grid);
+    layout.append(fieldsContainer);
+    c.append(layout);
+    e.append(c);
+
+    // Trigger preview population
+    updatePreview();
+
+ } else {
+    const h=document.createElement("h2");
+    h.innerHTML=`<span>${tableNames[table] || table} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
+    c.append(h);
+    const g=document.createElement("div");g.className="grid";
+    Object.entries(data[table][row]||{}).forEach(([k,v])=>g.append(field(k,v,[table,row,k])));
+    c.append(g);
+    e.append(c);
+ }
+ 
+ $("status").textContent="Editing " + (tableNames[table] || table) + " / "+ uiRowName;
+}
+
+function load(text,name){try{const x=JSON.parse(text);if(!x||Array.isArray(x)||typeof x!=="object")throw Error("Root must be an object");data=x;original=clone(x);fileName=name.replace(/\.json$/i,"")+"_configured.json";table=Object.keys(x)[0]||null;row=null;["download","reset"].forEach(id=>$(id).disabled=false);$("drop").style.display="none";nav();edit();$("status").textContent="Loaded "+name}catch(e){alert("Invalid JSON: "+e.message)}}
+$("file").onchange=e=>{const f=e.target.files[0];if(f)f.text().then(t=>load(t,f.name))};
+const d=$("drop");["dragenter","dragover"].forEach(x=>d.addEventListener(x,e=>{e.preventDefault();d.classList.add("drag")}));["dragleave","drop"].forEach(x=>d.addEventListener(x,e=>{e.preventDefault();d.classList.remove("drag")}));d.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)f.text().then(t=>load(t,f.name))});
+
+$("download").onclick=()=>{
+    if(data && data.DT_PalHumanParameter) {
+        Object.keys(data.DT_PalHumanParameter).forEach(palId => {
+            if(data.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm !== undefined) {
+                data.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm = 0;
+            }
+            if(data.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction !== undefined) {
+                data.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction = 0;
+            }
+        });
+    }
+    const b=new Blob([JSON.stringify(data,null,2)+"\n"],{type:"application/json"}),a=document.createElement("a");
+    a.href=URL.createObjectURL(b);a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+};
+
+$("reset").onclick=()=>{if(confirm("Discard all changes?")){data=clone(original);nav();edit();$("status").textContent="Changes reset"}};
+</script>
+</body>
+</html>
