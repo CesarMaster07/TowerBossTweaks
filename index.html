@@ -103,7 +103,7 @@ details.group-details[open] summary { border-bottom: 1px solid var(--line); }
 <div id="editor" class="empty">Load the <code>HumanTowerBoss.json</code> file to begin.</div>
 </section></main>
 <script>
-let data=null,original=null,fileName="configured.json",table=null,row=null;
+let data=null,original=null,fileName="configured.json",table=null,row=null,isFlatFormat=false;
 const $=x=>document.getElementById(x), clone=x=>JSON.parse(JSON.stringify(x));
 const typ=x=>x===null?"null":Array.isArray(x)?"array":typeof x;
 
@@ -149,8 +149,10 @@ const palNames = {
     "SnowBoss": "Victor",
     "SakurajimaBoss": "Saya",
     "VikingBoss": "Bjorn",
-    "Female_SurveyWoman02": "Auri",
-    "Female_SurveyGirl02": "Zenara"
+    "Auri-Female_SurveyWoman02": "Auri",
+    "Zenara-Female_SurveyGirl02": "Zenara",
+    "Auri": "Auri",
+    "Zenara": "Zenara"
 };
 
 const palIcons = {
@@ -161,8 +163,10 @@ const palIcons = {
     "SnowBoss": "Assets/Victor.png",
     "SakurajimaBoss": "Assets/Saya.png",
     "VikingBoss": "Assets/Bjorn.png",
-    "Female_SurveyWoman02": "Assets/Auri.png",
-    "Female_SurveyGirl02": "Assets/Zenara.png"
+    "Auri-Female_SurveyWoman02": "Assets/Auri.png",
+    "Zenara-Female_SurveyGirl02": "Assets/Zenara.png",
+    "Auri": "Assets/Auri.png",
+    "Zenara": "Assets/Zenara.png"
 };
 
 // Image filenames for Element Types
@@ -340,11 +344,15 @@ function updatePreview() {
         let elHtml = "";
         const el1 = pData.ElementType1;
         const el2 = pData.ElementType2;
-        if(el1 && el1 !== "EPalElementType::None" && elementIcons[el1]) {
-            elHtml += `<img src="${elementIcons[el1]}" class="pal-element-icon" title="${el1.split('::')[1]}">`;
+        
+        const el1Key = isFlatFormat && el1 && !el1.startsWith("EPalElementType::") ? "EPalElementType::" + el1 : el1;
+        const el2Key = isFlatFormat && el2 && !el2.startsWith("EPalElementType::") ? "EPalElementType::" + el2 : el2;
+
+        if(el1Key && el1Key !== "EPalElementType::None" && elementIcons[el1Key]) {
+            elHtml += `<img src="${elementIcons[el1Key]}" class="pal-element-icon" title="${el1Key.split('::')[1]}">`;
         }
-        if(el2 && el2 !== "EPalElementType::None" && elementIcons[el2] && el2 !== el1) {
-            elHtml += `<img src="${elementIcons[el2]}" class="pal-element-icon" title="${el2.split('::')[1]}">`;
+        if(el2Key && el2Key !== "EPalElementType::None" && elementIcons[el2Key] && el2Key !== el1Key) {
+            elHtml += `<img src="${elementIcons[el2Key]}" class="pal-element-icon" title="${el2Key.split('::')[1]}">`;
         }
         if(!elHtml) elHtml = `<span class="muted" style="font-size:12px;">None</span>`;
         if($("preview-elements")) $("preview-elements").innerHTML = elHtml;
@@ -534,13 +542,18 @@ function field(k,v,path){
     const s = document.createElement("select");
     elements.forEach(el => {
         const opt = document.createElement("option");
-        opt.value = el; opt.textContent = el;
-        if(v === el) opt.selected = true;
+        let valToSave = isFlatFormat ? el.replace("EPalElementType::", "") : el;
+        opt.value = valToSave; 
+        opt.textContent = el.replace("EPalElementType::", "");
+        if(v === valToSave) opt.selected = true;
         s.append(opt);
     });
-    if(!elements.includes(v)) {
+    let validVals = elements.map(el => isFlatFormat ? el.replace("EPalElementType::", "") : el);
+    if(!validVals.includes(v)) {
         const opt = document.createElement("option");
-        opt.value = v; opt.textContent = v; opt.selected = true;
+        opt.value = v; 
+        opt.textContent = v.replace("EPalElementType::", ""); 
+        opt.selected = true;
         s.append(opt);
     }
     s.onchange = () => {
@@ -744,22 +757,54 @@ function edit(){
  $("status").textContent="Editing " + (tableNames[table] || table) + " / "+ uiRowName;
 }
 
-function load(text,name){try{const x=JSON.parse(text);if(!x||Array.isArray(x)||typeof x!=="object")throw Error("Root must be an object");data=x;original=clone(x);fileName=name.replace(/\.json$/i,"")+"_configured.json";table=Object.keys(x)[0]||null;row=null;["download","reset"].forEach(id=>$(id).disabled=false);$("drop").style.display="none";nav();edit();$("status").textContent="Loaded "+name}catch(e){alert("Invalid JSON: "+e.message)}}
+function load(text,name){
+    try{
+        const x=JSON.parse(text);
+        if(!x||Array.isArray(x)||typeof x!=="object") throw Error("Root must be an object");
+        
+        isFlatFormat = !x.DT_PalHumanParameter && !x.DT_PassiveSkill_Main && !x.DT_WazaMasterLevel;
+        
+        let processedData = x;
+        if(isFlatFormat) {
+            processedData = { "DT_PalHumanParameter": x };
+        }
+        
+        data = processedData;
+        original = clone(processedData);
+        fileName = name.replace(/\.json$/i,"")+"_configured.json";
+        table = Object.keys(processedData)[0]||null;
+        row = null;
+        
+        ["download","reset"].forEach(id=>$(id).disabled=false);
+        $("drop").style.display="none";
+        nav();
+        edit();
+        $("status").textContent="Loaded "+name;
+    } catch(e){
+        alert("Invalid JSON: "+e.message);
+    }
+}
 $("file").onchange=e=>{const f=e.target.files[0];if(f)f.text().then(t=>load(t,f.name))};
 const d=$("drop");["dragenter","dragover"].forEach(x=>d.addEventListener(x,e=>{e.preventDefault();d.classList.add("drag")}));["dragleave","drop"].forEach(x=>d.addEventListener(x,e=>{e.preventDefault();d.classList.remove("drag")}));d.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)f.text().then(t=>load(t,f.name))});
 
 $("download").onclick=()=>{
-    if(data && data.DT_PalHumanParameter) {
-        Object.keys(data.DT_PalHumanParameter).forEach(palId => {
-            if(data.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm !== undefined) {
-                data.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm = 0;
+    let exportData = clone(data);
+    if(exportData && exportData.DT_PalHumanParameter) {
+        Object.keys(exportData.DT_PalHumanParameter).forEach(palId => {
+            if(exportData.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm !== undefined) {
+                exportData.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm = 0;
             }
-            if(data.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction !== undefined) {
-                data.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction = 0;
+            if(exportData.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction !== undefined) {
+                exportData.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction = 0;
             }
         });
     }
-    const b=new Blob([JSON.stringify(data,null,2)+"\n"],{type:"application/json"}),a=document.createElement("a");
+
+    if(isFlatFormat) {
+        exportData = exportData.DT_PalHumanParameter;
+    }
+
+    const b=new Blob([JSON.stringify(exportData,null,2)+"\n"],{type:"application/json"}),a=document.createElement("a");
     a.href=URL.createObjectURL(b);a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
 };
 
