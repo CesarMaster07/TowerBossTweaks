@@ -22,6 +22,7 @@ main.collapsed .drop-text { display: none; }
 main.collapsed .drop::before { content: '📁'; font-size: 24px; }
 
 input,select,textarea,button{font:inherit}button,.filebtn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:7px;padding:8px 12px;cursor:pointer}.primary{background:var(--green);border-color:#2ea043}.danger{background:#3d1518;border-color:var(--red)}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 input[type=file]{display:none}.title{margin:18px 0 7px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em; transition: opacity 0.2s; white-space: nowrap; }
 main.collapsed .title { opacity: 0; pointer-events: none; height: 0; margin: 0; overflow: hidden; }
 
@@ -95,14 +96,148 @@ details.group-details[open] summary { border-bottom: 1px solid var(--line); }
 <div id="drop" class="drop" onclick="document.getElementById('file').click()">
     <div class="drop-text"><b>Load a JSON file</b><br><span class="muted">Drag & drop or choose one</span><br><br>
     <label class="filebtn primary">Choose JSON</label></div>
-    <input id="file" type="file" accept=".json,application/json" onclick="event.stopPropagation()">
 </div>
+<!-- New Load Button (Replaces drop zone after load) -->
+<button id="load-new" class="navbtn" style="display:none; margin-bottom: 16px; border: 1px dashed var(--line);" onclick="document.getElementById('file').click()" title="Load New JSON">
+    <span class="btn-icon">📁</span><span class="btn-text">Load New JSON</span>
+</button>
+<input id="file" type="file" accept=".json,application/json" onclick="event.stopPropagation()">
 <div id="nav"></div>
 </aside><section>
-<div class="toolbar"><button id="download" class="primary" disabled>Download JSON</button><button id="reset" class="danger" disabled>Reset</button><span id="status" class="status">No file loaded</span></div>
-<div id="editor" class="empty">Load the <code>HumanTowerBoss.json</code> file to begin.</div>
+<div class="toolbar">
+    <button id="download" class="primary" disabled>Download JSON</button>
+    <button id="reset" class="danger" disabled>Reset</button>
+    <span id="status" class="status">No file loaded</span>
+</div>
+<div id="editor" class="empty">Load a valid <code>.json</code> file to begin.</div>
 </section></main>
 <script>
+// ==========================================
+// EXTERNAL SCHEMA CONFIGURATION
+// ==========================================
+const PAL_SCHEMA = {
+    tableNames: {
+        "DT_PalHumanParameter": "Human Parameters",
+        "DT_PassiveSkill_Main": "Passive Skills",
+        "DT_WazaMasterLevel": "Learned Skills (Level Up)"
+    },
+    tableIcons: {
+        "DT_PalHumanParameter": "⚙️",
+        "DT_PassiveSkill_Main": "🧬",
+        "DT_WazaMasterLevel": "📖"
+    },
+    rowNames: {
+        "GrassBoss": "Zoe",
+        "ForestBoss": "Lily",
+        "ElectricBoss": "Axel",
+        "DesertBoss": "Marcus",
+        "SnowBoss": "Victor",
+        "SakurajimaBoss": "Saya",
+        "VikingBoss": "Bjorn"
+    },
+    rowIcons: {
+        "GrassBoss": "Assets/Zoe.png",
+        "ForestBoss": "Assets/Lily.png",
+        "ElectricBoss": "Assets/Axel.png",
+        "DesertBoss": "Assets/Marcus.png",
+        "SnowBoss": "Assets/Victor.png",
+        "SakurajimaBoss": "Assets/Saya.png",
+        "VikingBoss": "Assets/Bjorn.png"
+    },
+    elementIcons: {
+        "EPalElementType::Normal": "Assets/Neutral_icon.png",
+        "EPalElementType::Fire": "Assets/Fire_icon.png",
+        "EPalElementType::Water": "Assets/Water_icon.png",
+        "EPalElementType::Leaf": "Assets/Grass_icon.png",
+        "EPalElementType::Electricity": "Assets/Electric_icon.png",
+        "EPalElementType::Ice": "Assets/Ice_icon.png",
+        "EPalElementType::Earth": "Assets/Ground_icon.png",
+        "EPalElementType::Dark": "Assets/Dark_icon.png",
+        "EPalElementType::Dragon": "Assets/Dragon_icon.png",
+        "EPalElementType::None": ""
+    },
+    effectNameMap: {
+        "EPalPassiveSkillEffectType::MaxHP": "Max Health",
+        "EPalPassiveSkillEffectType::MeleeAttack": "Melee Attack",
+        "EPalPassiveSkillEffectType::ShotAttack": "Attack",
+        "EPalPassiveSkillEffectType::Defense": "Defense",
+        "EPalPassiveSkillEffectType::Support": "Support",
+        "EPalPassiveSkillEffectType::CraftSpeed": "Work Speed",
+        "EPalPassiveSkillEffectType::MoveSpeed": "Move Speed",
+        "EPalPassiveSkillEffectType::NonElementAttack": "Neutral Damage",
+        "EPalPassiveSkillEffectType::FireAttack": "Fire Damage",
+        "EPalPassiveSkillEffectType::WaterAttack": "Water Damage",
+        "EPalPassiveSkillEffectType::LeafAttack": "Grass Damage",
+        "EPalPassiveSkillEffectType::ElectricityAttack": "Lightning Damage",
+        "EPalPassiveSkillEffectType::IceAttack": "Ice Damage",
+        "EPalPassiveSkillEffectType::EarthAttack": "Ground Damage",
+        "EPalPassiveSkillEffectType::DarkAttack": "Dark Damage",
+        "EPalPassiveSkillEffectType::DragonAttack": "Dragon Damage",
+        "EPalPassiveSkillEffectType::WorldTreeDecayImmunity": "WorldTreeDecayImmunity"
+    },
+    friendlyFieldNames: {
+        "WorkSuitability_EmitFlame": "Kindling",
+        "WorkSuitability_Watering": "Watering",
+        "WorkSuitability_Seeding": "Planting",
+        "WorkSuitability_GenerateElectricity": "Generating Electricity",
+        "WorkSuitability_Collection": "Gathering",
+        "WorkSuitability_Deforest": "Lumbering",
+        "WorkSuitability_Mining": "Mining",
+        "WorkSuitability_ProductMedicine": "Medicine Production",
+        "WorkSuitability_Cool": "Cooling",
+        "WorkSuitability_Transport": "Transporting",
+        "WorkSuitability_Handcraft": "Handiwork",
+        "WorkSuitability_MonsterFarm": "Farming",
+        "WorkSuitability_OilExtraction": "Oil Extraction"
+    },
+    emojis: {
+        "WorkSuitability_EmitFlame": "🔥", "WorkSuitability_Watering": "💧", "WorkSuitability_Seeding": "🌱",
+        "WorkSuitability_GenerateElectricity": "⚡", "WorkSuitability_Handcraft": "🛠️", "WorkSuitability_Collection": "🧺",
+        "WorkSuitability_Deforest": "🪓", "WorkSuitability_Mining": "⛏️", "WorkSuitability_ProductMedicine": "💊", 
+        "WorkSuitability_Cool": "❄️", "WorkSuitability_Transport": "📦", "WorkSuitability_MonsterFarm": "🐑",
+        "WorkSuitability_OilExtraction": "🛢️", "Hp": "❤️", "MeleeAttack": "⚔️", "Defense": "🛡️", "CraftSpeed": "🔨", "Support": "🤝"
+    },
+    dropdowns: {
+        "EPalElementType": [
+            "EPalElementType::None", "EPalElementType::Normal", "EPalElementType::Fire", "EPalElementType::Water",
+            "EPalElementType::Leaf", "EPalElementType::Electricity", "EPalElementType::Ice", "EPalElementType::Earth",
+            "EPalElementType::Dark", "EPalElementType::Dragon"
+        ],
+        "EPalPassiveSkillEffectType": [
+            "EPalPassiveSkillEffectType::None", "EPalPassiveSkillEffectType::MaxHP", 
+            "EPalPassiveSkillEffectType::MeleeAttack", "EPalPassiveSkillEffectType::ShotAttack", 
+            "EPalPassiveSkillEffectType::Defense", "EPalPassiveSkillEffectType::Support", 
+            "EPalPassiveSkillEffectType::CraftSpeed", "EPalPassiveSkillEffectType::MoveSpeed", 
+            "EPalPassiveSkillEffectType::NonElementAttack", "EPalPassiveSkillEffectType::FireAttack", 
+            "EPalPassiveSkillEffectType::WaterAttack", "EPalPassiveSkillEffectType::LeafAttack", 
+            "EPalPassiveSkillEffectType::ElectricityAttack", "EPalPassiveSkillEffectType::IceAttack", 
+            "EPalPassiveSkillEffectType::EarthAttack", "EPalPassiveSkillEffectType::DarkAttack", 
+            "EPalPassiveSkillEffectType::DragonAttack", "EPalPassiveSkillEffectType::WorldTreeDecayImmunity"
+        ],
+        "EPalPassiveSkillEffectTargetType": [
+            "EPalPassiveSkillEffectTargetType::ToSelf", 
+            "EPalPassiveSkillEffectTargetType::ToTrainer", 
+            "EPalPassiveSkillEffectTargetType::ToSelfAndTrainer"
+        ]
+    },
+    paramGroups: {
+        "Stats": ["Hp","MeleeAttack","ShotAttack","Defense","Support","CraftSpeed","ElementType1","ElementType2"],
+        "Passives": ["PassiveSkill1", "PassiveSkill2", "PassiveSkill3", "PassiveSkill4"],
+        "Friendship": ["Friendship_HP","Friendship_ShotAttack","Friendship_Defense","Friendship_CraftSpeed"],
+        "Work Suitability": [
+            "WorkSuitability_EmitFlame","WorkSuitability_Watering","WorkSuitability_Seeding",
+            "WorkSuitability_GenerateElectricity","WorkSuitability_Handcraft","WorkSuitability_Collection",
+            "WorkSuitability_Deforest","WorkSuitability_Mining","WorkSuitability_OilExtraction",
+            "WorkSuitability_ProductMedicine","WorkSuitability_Cool","WorkSuitability_Transport",
+            "WorkSuitability_MonsterFarm"
+        ]
+    }
+};
+
+// ==========================================
+// CORE EDITOR LOGIC
+// ==========================================
+
 let data=null,original=null,fileName="configured.json",table=null,row=null,isFlatFormat=false;
 const $=x=>document.getElementById(x), clone=x=>JSON.parse(JSON.stringify(x));
 const typ=x=>x===null?"null":Array.isArray(x)?"array":typeof x;
@@ -111,15 +246,32 @@ $('toggleSidebar').onclick = () => {
     $('main-layout').classList.toggle('collapsed');
 };
 
+function checkChanges() {
+    if (!data || !original) return;
+    const isChanged = JSON.stringify(data) !== JSON.stringify(original);
+    $("download").disabled = !isChanged;
+    $("reset").disabled = !isChanged;
+    if (isChanged) {
+        $("status").textContent = "Unsaved changes";
+    }
+}
+
 function getIconForTarget(rName) {
     if(!rName) return "";
-    if(palIcons[rName]) return palIcons[rName];
-    for (let key in palNames) {
-        if (rName.includes(palNames[key]) || rName.includes(key)) {
-            return palIcons[key];
+    if(PAL_SCHEMA.rowIcons[rName]) return PAL_SCHEMA.rowIcons[rName];
+    for (let key in PAL_SCHEMA.rowNames) {
+        if (rName.includes(PAL_SCHEMA.rowNames[key]) || rName.includes(key)) {
+            return PAL_SCHEMA.rowIcons[key];
         }
     }
     return "";
+}
+
+function getDropdownOptions(key) {
+    if(key.startsWith("ElementType")) return PAL_SCHEMA.dropdowns["EPalElementType"];
+    if(key.startsWith("EffectType")) return PAL_SCHEMA.dropdowns["EPalPassiveSkillEffectType"];
+    if(key.startsWith("TargetType")) return PAL_SCHEMA.dropdowns["EPalPassiveSkillEffectTargetType"];
+    return null;
 }
 
 function setv(path,v){
@@ -127,137 +279,8 @@ function setv(path,v){
     for(let i=0;i<path.length-1;i++)o=o[path[i]];
     o[path.at(-1)]=v;
     if(table === "DT_PalHumanParameter" || table === "DT_PassiveSkill_Main") updatePreview();
+    checkChanges();
 }
-
-// UI Mapping Dictionaries
-const tableNames = {
-    "DT_PalHumanParameter": "Human Parameters",
-    "DT_PassiveSkill_Main": "Passive Skills",
-    "DT_WazaMasterLevel": "Learned Skills (Level Up)"
-};
-const tableIcons = {
-    "DT_PalHumanParameter": "⚙️",
-    "DT_PassiveSkill_Main": "🧬",
-    "DT_WazaMasterLevel": "📖"
-};
-
-const palNames = {
-    "GrassBoss": "Zoe",
-    "ForestBoss": "Lily",
-    "ElectricBoss": "Axel",
-    "DesertBoss": "Marcus",
-    "SnowBoss": "Victor",
-    "SakurajimaBoss": "Saya",
-    "VikingBoss": "Bjorn",
-    "Auri-Female_SurveyWoman02": "Auri",
-    "Zenara-Female_SurveyGirl02": "Zenara",
-    "Auri": "Auri",
-    "Zenara": "Zenara"
-};
-
-const palIcons = {
-    "GrassBoss": "Assets/Zoe.png",
-    "ForestBoss": "Assets/Lily.png",
-    "ElectricBoss": "Assets/Axel.png",
-    "DesertBoss": "Assets/Marcus.png",
-    "SnowBoss": "Assets/Victor.png",
-    "SakurajimaBoss": "Assets/Saya.png",
-    "VikingBoss": "Assets/Bjorn.png",
-    "Auri-Female_SurveyWoman02": "Assets/Auri.png",
-    "Zenara-Female_SurveyGirl02": "Assets/Zenara.png",
-    "Auri": "Assets/Auri.png",
-    "Zenara": "Assets/Zenara.png"
-};
-
-// Image filenames for Element Types
-const elementIcons = {
-    "EPalElementType::Normal": "Assets/Neutral_icon.png",
-    "EPalElementType::Fire": "Assets/Fire_icon.png",
-    "EPalElementType::Water": "Assets/Water_icon.png",
-    "EPalElementType::Leaf": "Assets/Grass_icon.png",
-    "EPalElementType::Electricity": "Assets/Electric_icon.png",
-    "EPalElementType::Ice": "Assets/Ice_icon.png",
-    "EPalElementType::Earth": "Assets/Ground_icon.png",
-    "EPalElementType::Dark": "Assets/Dark_icon.png",
-    "EPalElementType::Dragon": "Assets/Dragon_icon.png",
-    "EPalElementType::None": ""
-};
-
-const effectNameMap = {
-    "EPalPassiveSkillEffectType::MaxHP": "Max Health",
-    "EPalPassiveSkillEffectType::MeleeAttack": "Melee Attack",
-    "EPalPassiveSkillEffectType::ShotAttack": "Attack",
-    "EPalPassiveSkillEffectType::Defense": "Defense",
-    "EPalPassiveSkillEffectType::Support": "Support",
-    "EPalPassiveSkillEffectType::CraftSpeed": "Work Speed",
-    "EPalPassiveSkillEffectType::MoveSpeed": "Move Speed",
-    "EPalPassiveSkillEffectType::NonElementAttack": "Neutral Damage",
-    "EPalPassiveSkillEffectType::FireAttack": "Fire Damage",
-    "EPalPassiveSkillEffectType::WaterAttack": "Water Damage",
-    "EPalPassiveSkillEffectType::LeafAttack": "Grass Damage",
-    "EPalPassiveSkillEffectType::ElectricityAttack": "Lightning Damage",
-    "EPalPassiveSkillEffectType::IceAttack": "Ice Damage",
-    "EPalPassiveSkillEffectType::EarthAttack": "Ground Damage",
-    "EPalPassiveSkillEffectType::DarkAttack": "Dark Damage",
-    "EPalPassiveSkillEffectType::DragonAttack": "Dragon Damage",
-    "EPalPassiveSkillEffectType::WorldTreeDecayImmunity": "WorldTreeDecayImmunity"
-};
-
-const friendlyFieldNames = {
-    "WorkSuitability_EmitFlame": "Kindling",
-    "WorkSuitability_Watering": "Watering",
-    "WorkSuitability_Seeding": "Planting",
-    "WorkSuitability_GenerateElectricity": "Generating Electricity",
-    "WorkSuitability_Collection": "Gathering",
-    "WorkSuitability_Deforest": "Lumbering",
-    "WorkSuitability_Mining": "Mining",
-    "WorkSuitability_ProductMedicine": "Medicine Production",
-    "WorkSuitability_Cool": "Cooling",
-    "WorkSuitability_Transport": "Transporting",
-    "WorkSuitability_Handcraft": "Handiwork"
-};
-
-const emojis = {
-    "WorkSuitability_EmitFlame": "🔥", "WorkSuitability_Watering": "💧", "WorkSuitability_Seeding": "🌱",
-    "WorkSuitability_GenerateElectricity": "⚡", "WorkSuitability_Handcraft": "🛠️", "WorkSuitability_Collection": "🧺",
-    "WorkSuitability_Deforest": "🪓", "WorkSuitability_Mining": "⛏️", "WorkSuitability_ProductMedicine": "💊", 
-    "WorkSuitability_Cool": "❄️", "WorkSuitability_Transport": "📦", "Hp": "❤️", "MeleeAttack": "⚔️", "Defense": "🛡️", "CraftSpeed": "🔨"
-};
-
-const elements = [
-    "EPalElementType::None", "EPalElementType::Normal", "EPalElementType::Fire", "EPalElementType::Water",
-    "EPalElementType::Leaf", "EPalElementType::Electricity", "EPalElementType::Ice", "EPalElementType::Earth",
-    "EPalElementType::Dark", "EPalElementType::Dragon"
-];
-
-const effectTypes = [
-    "EPalPassiveSkillEffectType::None", "EPalPassiveSkillEffectType::MaxHP", 
-    "EPalPassiveSkillEffectType::MeleeAttack", "EPalPassiveSkillEffectType::ShotAttack", 
-    "EPalPassiveSkillEffectType::Defense", "EPalPassiveSkillEffectType::Support", 
-    "EPalPassiveSkillEffectType::CraftSpeed", "EPalPassiveSkillEffectType::MoveSpeed", 
-    "EPalPassiveSkillEffectType::NonElementAttack", "EPalPassiveSkillEffectType::FireAttack", 
-    "EPalPassiveSkillEffectType::WaterAttack", "EPalPassiveSkillEffectType::LeafAttack", 
-    "EPalPassiveSkillEffectType::ElectricityAttack", "EPalPassiveSkillEffectType::IceAttack", 
-    "EPalPassiveSkillEffectType::EarthAttack", "EPalPassiveSkillEffectType::DarkAttack", 
-    "EPalPassiveSkillEffectType::DragonAttack", "EPalPassiveSkillEffectType::WorldTreeDecayImmunity"
-];
-
-const targetTypes = [
-    "EPalPassiveSkillEffectTargetType::ToSelf", 
-    "EPalPassiveSkillEffectTargetType::ToTrainer", 
-    "EPalPassiveSkillEffectTargetType::ToSelfAndTrainer"
-];
-
-const paramGroups = {
-    "Stats": ["Hp","MeleeAttack","ShotAttack","Defense","CraftSpeed","ElementType1","ElementType2"],
-    "Friendship": ["Friendship_HP","Friendship_ShotAttack","Friendship_Defense","Friendship_CraftSpeed"],
-    "Work Suitability": [
-        "WorkSuitability_EmitFlame","WorkSuitability_Watering","WorkSuitability_Seeding",
-        "WorkSuitability_GenerateElectricity","WorkSuitability_Handcraft","WorkSuitability_Collection",
-        "WorkSuitability_Deforest","WorkSuitability_Mining","WorkSuitability_ProductMedicine",
-        "WorkSuitability_Cool","WorkSuitability_Transport"
-    ]
-};
 
 function getTooltip(key) {
     if(key.startsWith("WorkSuitability_")) return "Level of suitability for this base job (0 = none, higher = faster).";
@@ -293,7 +316,7 @@ function rebuildPassiveDescription(r) {
         let eType = pData["EffectType"+i];
         if(!eType || eType === "EPalPassiveSkillEffectType::None") continue;
         
-        let eName = effectNameMap[eType] || eType.split("::")[1] || eType;
+        let eName = PAL_SCHEMA.effectNameMap[eType] || eType.split("::")[1] || eType;
         
         if(eType === "EPalPassiveSkillEffectType::WorldTreeDecayImmunity") {
             newStats.push(eName);
@@ -326,7 +349,7 @@ function updatePreview() {
         $("preview-def").textContent = pData.Defense || 0;
         $("preview-work").textContent = pData.CraftSpeed || 0;
 
-        const uiName = pData.OverrideNameTextID || palNames[row] || row;
+        const uiName = pData.OverrideNameTextID || PAL_SCHEMA.rowNames[row] || row;
         if($("preview-name")) $("preview-name").textContent = uiName;
 
         const iconEl = document.getElementById("preview-icon-img");
@@ -340,25 +363,23 @@ function updatePreview() {
             }
         }
 
-        // Render Dynamic Element PNG Icons
         let elHtml = "";
         const el1 = pData.ElementType1;
         const el2 = pData.ElementType2;
         
-        const el1Key = isFlatFormat && el1 && !el1.startsWith("EPalElementType::") ? "EPalElementType::" + el1 : el1;
-        const el2Key = isFlatFormat && el2 && !el2.startsWith("EPalElementType::") ? "EPalElementType::" + el2 : el2;
+        const el1Key = (isFlatFormat || (el1 && !el1.startsWith("EPalElementType::"))) && el1 ? "EPalElementType::" + el1 : el1;
+        const el2Key = (isFlatFormat || (el2 && !el2.startsWith("EPalElementType::"))) && el2 ? "EPalElementType::" + el2 : el2;
 
-        if(el1Key && el1Key !== "EPalElementType::None" && elementIcons[el1Key]) {
-            elHtml += `<img src="${elementIcons[el1Key]}" class="pal-element-icon" title="${el1Key.split('::')[1]}">`;
+        if(el1Key && el1Key !== "EPalElementType::None" && PAL_SCHEMA.elementIcons[el1Key]) {
+            elHtml += `<img src="${PAL_SCHEMA.elementIcons[el1Key]}" class="pal-element-icon" title="${el1Key.split('::')[1]}">`;
         }
-        if(el2Key && el2Key !== "EPalElementType::None" && elementIcons[el2Key] && el2Key !== el1Key) {
-            elHtml += `<img src="${elementIcons[el2Key]}" class="pal-element-icon" title="${el2Key.split('::')[1]}">`;
+        if(el2Key && el2Key !== "EPalElementType::None" && PAL_SCHEMA.elementIcons[el2Key] && el2Key !== el1Key) {
+            elHtml += `<img src="${PAL_SCHEMA.elementIcons[el2Key]}" class="pal-element-icon" title="${el2Key.split('::')[1]}">`;
         }
         if(!elHtml) elHtml = `<span class="muted" style="font-size:12px;">None</span>`;
         if($("preview-elements")) $("preview-elements").innerHTML = elHtml;
 
-
-        paramGroups["Work Suitability"].forEach(k => {
+        PAL_SCHEMA.paramGroups["Work Suitability"].forEach(k => {
             const val = pData[k] || 0;
             const el = document.getElementById("preview-suit-" + k);
             if(el) {
@@ -390,7 +411,7 @@ function updatePreview() {
 
 function buildHumanPreviewBox() {
     const pData = data[table][row] || {};
-    const uiName = pData.OverrideNameTextID || palNames[row] || row;
+    const uiName = pData.OverrideNameTextID || PAL_SCHEMA.rowNames[row] || row;
     const iconSrc = getIconForTarget(row);
     
     let html = `
@@ -420,15 +441,13 @@ function buildHumanPreviewBox() {
                 <div class="pal-suitability-grid">
     `;
 
-    paramGroups["Work Suitability"].forEach(k => {
-        const title = friendlyFieldNames[k];
-        const icon = emojis[k];
+    PAL_SCHEMA.paramGroups["Work Suitability"].forEach(k => {
+        const title = PAL_SCHEMA.friendlyFieldNames[k] || k;
+        const icon = PAL_SCHEMA.emojis[k] || "";
         const val = pData[k] || 0;
         const valClass = val > 0 ? "pal-suitability-val" : "pal-suitability-val zero";
         html += `<div class="pal-suitability-item"><span>${icon} ${title}</span><span id="preview-suit-${k}" class="${valClass}">${val > 0 ? val : '-'}</span></div>`;
     });
-
-    html += `<div class="pal-suitability-item"><span>🛖 Farming</span><span class="pal-suitability-val zero">-</span></div>`;
 
     html += `</div></div></div></div>`;
     
@@ -461,9 +480,9 @@ function nav(){
     if(t === "DT_PalCharacterIconDataTable") return; 
     const b=document.createElement("button");
     b.className="navbtn "+(table===t?"active":"");
-    const tName = tableNames[t] || t;
-    b.title = tName; // Tooltip for collapsed view
-    b.innerHTML = `<span class="btn-icon">${tableIcons[t]||"📄"}</span><span class="btn-text">${tName}</span>`;
+    const tName = PAL_SCHEMA.tableNames[t] || t;
+    b.title = tName; 
+    b.innerHTML = `<span class="btn-icon">${PAL_SCHEMA.tableIcons[t]||"📄"}</span><span class="btn-text">${tName}</span>`;
     b.onclick=()=>{table=t;row=null;nav();edit()};
     n.append(b)
  });
@@ -486,7 +505,15 @@ function nav(){
         b.className="navbtn "+(row===r?"active":"");
         
         let iconSrc = getIconForTarget(r);
-        let uiRowName = palNames[r] || r;
+        let uiRowName = PAL_SCHEMA.rowNames[r] || r;
+        
+        if (!PAL_SCHEMA.rowNames[r]) {
+            if (data[table][r] && data[table][r].OverrideNameTextID) {
+                uiRowName = data[table][r].OverrideNameTextID;
+            } else {
+                uiRowName = r;
+            }
+        }
 
         b.title = uiRowName; 
         
@@ -520,12 +547,14 @@ function field(k,v,path){
  d.title = getTooltip(k);
  
  const l=document.createElement("label");
- const mappedName = friendlyFieldNames[k] || k;
- const displayName = mappedName + (emojis[k] ? " " + emojis[k] : "");
+ const mappedName = PAL_SCHEMA.friendlyFieldNames[k] || k;
+ const displayName = mappedName + (PAL_SCHEMA.emojis[k] ? " " + PAL_SCHEMA.emojis[k] : "");
  l.textContent=displayName+" ";
  
  const t=document.createElement("span");t.className="type";t.textContent=typ(v);l.append(t);d.append(l);
  
+ const optionsList = getDropdownOptions(k);
+
  if(typeof v==="boolean"){
     const i=document.createElement("input");i.type="checkbox";i.checked=v;
     i.onchange=()=>setv(path,i.checked);d.append(i)
@@ -538,69 +567,29 @@ function field(k,v,path){
     };
     d.append(i)
  }
- else if(k === "ElementType1" || k === "ElementType2"){
+ else if(optionsList){
     const s = document.createElement("select");
-    elements.forEach(el => {
+    optionsList.forEach(el => {
         const opt = document.createElement("option");
-        let valToSave = isFlatFormat ? el.replace("EPalElementType::", "") : el;
+        let valToSave = (isFlatFormat || !el.includes("::")) ? el.split("::").pop() : el;
         opt.value = valToSave; 
-        opt.textContent = el.replace("EPalElementType::", "");
-        if(v === valToSave) opt.selected = true;
+        opt.textContent = el.split("::").pop();
+        if(v === valToSave || v === el) opt.selected = true;
         s.append(opt);
     });
-    let validVals = elements.map(el => isFlatFormat ? el.replace("EPalElementType::", "") : el);
+    let validVals = optionsList.map(el => (isFlatFormat || !el.includes("::")) ? el.split("::").pop() : el);
     if(!validVals.includes(v)) {
         const opt = document.createElement("option");
         opt.value = v; 
-        opt.textContent = v.replace("EPalElementType::", ""); 
+        opt.textContent = String(v).split("::").pop(); 
         opt.selected = true;
         s.append(opt);
     }
     s.onchange = () => {
         setv(path, s.value);
         if(table === "DT_PalHumanParameter") updatePreview();
+        if(table === "DT_PassiveSkill_Main" && k.startsWith("EffectType")) rebuildPassiveDescription(row);
     };
-    d.append(s);
- }
- else if(k.startsWith("EffectType")){
-    const s = document.createElement("select");
-    effectTypes.forEach(el => {
-        const opt = document.createElement("option");
-        opt.value = el; 
-        opt.textContent = el.split("::")[1] || el; 
-        if(v === el) opt.selected = true;
-        s.append(opt);
-    });
-    if(!effectTypes.includes(v)) {
-        const opt = document.createElement("option");
-        opt.value = v; 
-        opt.textContent = v.split("::")[1] || v; 
-        opt.selected = true;
-        s.append(opt);
-    }
-    s.onchange = () => {
-        setv(path, s.value);
-        if(table === "DT_PassiveSkill_Main") rebuildPassiveDescription(row);
-    };
-    d.append(s);
- }
- else if(k.startsWith("TargetType")){
-    const s = document.createElement("select");
-    targetTypes.forEach(el => {
-        const opt = document.createElement("option");
-        opt.value = el; 
-        opt.textContent = el.split("::")[1] || el; 
-        if(v === el) opt.selected = true;
-        s.append(opt);
-    });
-    if(!targetTypes.includes(v)) {
-        const opt = document.createElement("option");
-        opt.value = v; 
-        opt.textContent = v.split("::")[1] || v; 
-        opt.selected = true;
-        s.append(opt);
-    }
-    s.onchange = () => setv(path, s.value);
     d.append(s);
  }
  else if(typeof v==="string"){
@@ -627,18 +616,18 @@ function field(k,v,path){
 }
 
 function edit(){
- const e=$("editor");if(!data){e.className="empty";e.textContent="Load the HumanTowerBoss.json file to begin.";return}
+ const e=$("editor");if(!data){e.className="empty";e.textContent="Load the JSON file to begin.";return}
  if(!table){e.className="empty";e.textContent="Choose a Data Table from the sidebar.";return}
  if(!row){e.className="empty";e.textContent="Choose a row to begin editing.";return}
  e.className="";e.innerHTML="";const c=document.createElement("div");c.className="card";
  
- const uiRowName = palNames[row] || row;
+ const uiRowName = data[table][row]?.OverrideNameTextID || PAL_SCHEMA.rowNames[row] || row;
  const iconSrc = getIconForTarget(row);
 
  if(table === "DT_WazaMasterLevel") {
     const skillKeys = Object.keys(data[table]).filter(k => data[table][k].PalId === row);
     const h=document.createElement("h2");
-    h.innerHTML=`<span>${tableNames[table]} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
+    h.innerHTML=`<span>${PAL_SCHEMA.tableNames[table] || table} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
     c.append(h);
     const g=document.createElement("div");
     g.className="grid"; g.style.gridTemplateColumns = "1fr"; 
@@ -651,10 +640,10 @@ function edit(){
     });
     c.append(g);
     e.append(c);
- } else if(table === "DT_PalHumanParameter") {
+ } else if(table === "DT_PalHumanParameter" || table === "DT_PalMonsterParameter") {
     
     const h=document.createElement("h2");
-    h.innerHTML=`<span>${tableNames[table]} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
+    h.innerHTML=`<span>${PAL_SCHEMA.tableNames[table] || table} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
     c.append(h);
 
     const layout = document.createElement("div");
@@ -688,15 +677,12 @@ function edit(){
     });
 
     Object.entries(data[table][row]||{}).forEach(([k,v])=>{
-        if(k === "WorkSuitability_MonsterFarm" || k === "WorkSuitability_OilExtraction" || k === "Support") return;
-        
-        // Remove Passive Skills from Editing fields on Human Parameters
         if(k.startsWith("PassiveSkill")) return;
 
         let targetGroup = "General";
-        if(paramGroups.Stats.includes(k)) targetGroup = "Stats";
-        else if(paramGroups.Friendship.includes(k)) targetGroup = "Friendship";
-        else if(paramGroups["Work Suitability"].includes(k)) targetGroup = "Work Suitability";
+        if(PAL_SCHEMA.paramGroups.Stats.includes(k)) targetGroup = "Stats";
+        else if(PAL_SCHEMA.paramGroups.Friendship.includes(k)) targetGroup = "Friendship";
+        else if(PAL_SCHEMA.paramGroups["Work Suitability"].includes(k)) targetGroup = "Work Suitability";
         
         sections[targetGroup].grid.append(field(k,v,[table,row,k]));
         sections[targetGroup].count++;
@@ -710,23 +696,20 @@ function edit(){
     c.append(layout);
     e.append(c);
 
-    // Initial trigger to populate the preview values correctly
     updatePreview();
 
  } else if(table === "DT_PassiveSkill_Main") {
     
     const h=document.createElement("h2");
-    h.innerHTML=`<span>${tableNames[table]} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
+    h.innerHTML=`<span>${PAL_SCHEMA.tableNames[table] || table} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
     c.append(h);
 
     const layout = document.createElement("div");
     layout.className = "editor-layout";
 
-    // Build Preview Panel
     const previewDom = buildPassivePreviewBox();
     layout.append(previewDom);
 
-    // Setup Fields Section
     const fieldsContainer = document.createElement("div");
     fieldsContainer.className = "editor-fields";
     const grid = document.createElement("div");
@@ -741,12 +724,12 @@ function edit(){
     c.append(layout);
     e.append(c);
 
-    // Trigger preview population
     updatePreview();
 
  } else {
+    // Dynamic Fallback layout for unknown generic tables
     const h=document.createElement("h2");
-    h.innerHTML=`<span>${tableNames[table] || table} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
+    h.innerHTML=`<span>${PAL_SCHEMA.tableNames[table] || table} → ${uiRowName}</span>${iconSrc ? `<img src="${iconSrc}" class="npc-icon-sm" alt="${uiRowName}">` : ''}`;
     c.append(h);
     const g=document.createElement("div");g.className="grid";
     Object.entries(data[table][row]||{}).forEach(([k,v])=>g.append(field(k,v,[table,row,k])));
@@ -754,7 +737,7 @@ function edit(){
     e.append(c);
  }
  
- $("status").textContent="Editing " + (tableNames[table] || table) + " / "+ uiRowName;
+ $("status").textContent="Editing " + (PAL_SCHEMA.tableNames[table] || table) + " / "+ uiRowName;
 }
 
 function load(text,name){
@@ -775,40 +758,52 @@ function load(text,name){
         table = Object.keys(processedData)[0]||null;
         row = null;
         
-        ["download","reset"].forEach(id=>$(id).disabled=false);
         $("drop").style.display="none";
+        $("load-new").style.display="flex"; 
+        
         nav();
         edit();
+        checkChanges();
+        
         $("status").textContent="Loaded "+name;
     } catch(e){
         alert("Invalid JSON: "+e.message);
     }
 }
-$("file").onchange=e=>{const f=e.target.files[0];if(f)f.text().then(t=>load(t,f.name))};
+
+$("file").onchange=e=>{
+    const f=e.target.files[0];
+    if(f) {
+        f.text().then(t=>load(t,f.name));
+        e.target.value = ''; 
+    }
+};
+
 const d=$("drop");["dragenter","dragover"].forEach(x=>d.addEventListener(x,e=>{e.preventDefault();d.classList.add("drag")}));["dragleave","drop"].forEach(x=>d.addEventListener(x,e=>{e.preventDefault();d.classList.remove("drag")}));d.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)f.text().then(t=>load(t,f.name))});
 
 $("download").onclick=()=>{
     let exportData = clone(data);
-    if(exportData && exportData.DT_PalHumanParameter) {
-        Object.keys(exportData.DT_PalHumanParameter).forEach(palId => {
-            if(exportData.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm !== undefined) {
-                exportData.DT_PalHumanParameter[palId].WorkSuitability_MonsterFarm = 0;
-            }
-            if(exportData.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction !== undefined) {
-                exportData.DT_PalHumanParameter[palId].WorkSuitability_OilExtraction = 0;
-            }
-        });
-    }
-
     if(isFlatFormat) {
         exportData = exportData.DT_PalHumanParameter;
     }
 
     const b=new Blob([JSON.stringify(exportData,null,2)+"\n"],{type:"application/json"}),a=document.createElement("a");
-    a.href=URL.createObjectURL(b);a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+    a.href=URL.createObjectURL(b);a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+
+    original = clone(data);
+    checkChanges();
+    $("status").textContent="Saved successfully";
 };
 
-$("reset").onclick=()=>{if(confirm("Discard all changes?")){data=clone(original);nav();edit();$("status").textContent="Changes reset"}};
+$("reset").onclick=()=>{
+    if(confirm("Discard all changes?")){
+        data=clone(original);
+        nav();
+        edit();
+        checkChanges();
+        $("status").textContent="Changes reset";
+    }
+};
 </script>
 </body>
 </html>
