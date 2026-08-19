@@ -133,7 +133,9 @@ const PAL_SCHEMA = {
         "DesertBoss": "Marcus",
         "SnowBoss": "Victor",
         "SakurajimaBoss": "Saya",
-        "VikingBoss": "Bjorn"
+        "VikingBoss": "Bjorn",
+        "Auri": "Auri",
+        "Zenara": "Zenara"
     },
     rowIcons: {
         "GrassBoss": "Assets/Zoe.png",
@@ -142,7 +144,9 @@ const PAL_SCHEMA = {
         "DesertBoss": "Assets/Marcus.png",
         "SnowBoss": "Assets/Victor.png",
         "SakurajimaBoss": "Assets/Saya.png",
-        "VikingBoss": "Assets/Bjorn.png"
+        "VikingBoss": "Assets/Bjorn.png",
+        "Auri": "Assets/Auri.png",
+        "Zenara": "Assets/Zenara.png"
     },
     elementIcons: {
         "EPalElementType::Normal": "Assets/Neutral_icon.png",
@@ -505,15 +509,7 @@ function nav(){
         b.className="navbtn "+(row===r?"active":"");
         
         let iconSrc = getIconForTarget(r);
-        let uiRowName = PAL_SCHEMA.rowNames[r] || r;
-        
-        if (!PAL_SCHEMA.rowNames[r]) {
-            if (data[table][r] && data[table][r].OverrideNameTextID) {
-                uiRowName = data[table][r].OverrideNameTextID;
-            } else {
-                uiRowName = r;
-            }
-        }
+        let uiRowName = data[table][r]?.OverrideNameTextID || PAL_SCHEMA.rowNames[r] || r;
 
         b.title = uiRowName; 
         
