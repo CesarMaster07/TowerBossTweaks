@@ -40,7 +40,7 @@ main.collapsed .npc-icon-sm { width: 32px; height: 32px; }
 
 section{padding:20px;min-width:0; overflow-x: hidden; }.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.status{margin-left:auto;padding:8px;color:var(--muted)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}.card h2{font-size:15px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;padding:12px}
-.field{background:#11161d;border:1px solid #252c35;border-radius:8px;padding:10px}.field label{display:block;font-weight:600;margin-bottom:6px}.type{font-size:11px;color:var(--muted);font-weight:400}
+.field{background:#11161d;border:1px solid #252c35;border-radius:8px;padding:10px}.field label{display:flex;align-items:center;font-weight:600;margin-bottom:6px}.type{font-size:11px;color:var(--muted);font-weight:400;margin-left:auto;}
 input[type=text],input[type=number],textarea,select{width:100%;background:#0d1117;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:7px 8px}textarea{min-height:90px;font:12px monospace;resize:vertical}
 .empty{padding:45px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
 .skill-group{display:flex;gap:10px;background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--line);align-items:center;}
@@ -75,8 +75,10 @@ details.group-details[open] summary { border-bottom: 1px solid var(--line); }
 .pal-suitability-box { background: #0b0c10; border: 1px solid #1f2229; border-radius: 6px; margin-top: 16px; }
 .pal-suitability-title { font-size: 11px; padding: 10px 12px; color: #aaa; font-weight: bold; letter-spacing: 0.5px; border-bottom: 1px solid #1f2229; }
 .pal-suitability-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-.pal-suitability-item { display: flex; justify-content: space-between; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #1a1c22; border-right: 1px solid #1a1c22; }
+.pal-suitability-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #1a1c22; border-right: 1px solid #1a1c22; }
 .pal-suitability-item:nth-child(even) { border-right: none; }
+.pal-suitability-item span:first-child { display: flex; align-items: center; }
+.suit-icon { width: 16px; height: 16px; object-fit: contain; border-radius: 2px; }
 .pal-suitability-val { font-weight: bold; color: #fff; }
 .pal-suitability-val.zero { color: #555; }
 
@@ -159,6 +161,18 @@ const PAL_SCHEMA = {
         "EPalElementType::Dark": "Assets/Dark_icon.png",
         "EPalElementType::Dragon": "Assets/Dragon_icon.png",
         "EPalElementType::None": ""
+    },
+    suitabilityIcons: {
+        "WorkSuitability_EmitFlame": "Assets/Kindling.jpg",
+        "WorkSuitability_Watering": "Assets/Watering.jpg",
+        "WorkSuitability_Seeding": "Assets/Planting.jpg",
+        "WorkSuitability_GenerateElectricity": "Assets/Electricity.jpg",
+        "WorkSuitability_Handcraft": "Assets/Handiwork.jpg",
+        "WorkSuitability_Collection": "Assets/Gathering.jpg",
+        "WorkSuitability_Deforest": "Assets/Lumbering.jpg",
+        "WorkSuitability_Mining": "Assets/Mining.jpg",
+        "WorkSuitability_ProductMedicine": "Assets/Medicine.jpg",
+        "WorkSuitability_MonsterFarm": "Assets/Farming.jpg"
     },
     effectNameMap: {
         "EPalPassiveSkillEffectType::MaxHP": "Max Health",
@@ -447,10 +461,12 @@ function buildHumanPreviewBox() {
 
     PAL_SCHEMA.paramGroups["Work Suitability"].forEach(k => {
         const title = PAL_SCHEMA.friendlyFieldNames[k] || k;
-        const icon = PAL_SCHEMA.emojis[k] || "";
+        const iconImg = PAL_SCHEMA.suitabilityIcons[k];
+        const iconHtml = iconImg ? `<img src="${iconImg}" class="suit-icon" alt="${title}">` : (PAL_SCHEMA.emojis[k] || "");
         const val = pData[k] || 0;
         const valClass = val > 0 ? "pal-suitability-val" : "pal-suitability-val zero";
-        html += `<div class="pal-suitability-item"><span>${icon} ${title}</span><span id="preview-suit-${k}" class="${valClass}">${val > 0 ? val : '-'}</span></div>`;
+        
+        html += `<div class="pal-suitability-item"><span>${iconHtml} <span style="margin-left:6px;">${title}</span></span><span id="preview-suit-${k}" class="${valClass}">${val > 0 ? val : '-'}</span></div>`;
     });
 
     html += `</div></div></div></div>`;
@@ -509,7 +525,15 @@ function nav(){
         b.className="navbtn "+(row===r?"active":"");
         
         let iconSrc = getIconForTarget(r);
-        let uiRowName = data[table][r]?.OverrideNameTextID || PAL_SCHEMA.rowNames[r] || r;
+        let uiRowName = PAL_SCHEMA.rowNames[r] || r;
+        
+        if (!PAL_SCHEMA.rowNames[r]) {
+            if (data[table][r] && data[table][r].OverrideNameTextID) {
+                uiRowName = data[table][r].OverrideNameTextID;
+            } else {
+                uiRowName = r;
+            }
+        }
 
         b.title = uiRowName; 
         
@@ -544,8 +568,13 @@ function field(k,v,path){
  
  const l=document.createElement("label");
  const mappedName = PAL_SCHEMA.friendlyFieldNames[k] || k;
- const displayName = mappedName + (PAL_SCHEMA.emojis[k] ? " " + PAL_SCHEMA.emojis[k] : "");
- l.textContent=displayName+" ";
+ const suitIcon = PAL_SCHEMA.suitabilityIcons[k];
+ 
+ if(suitIcon) {
+    l.innerHTML = `<img src="${suitIcon}" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;border-radius:2px;"> ${mappedName} `;
+ } else {
+    l.textContent = mappedName + (PAL_SCHEMA.emojis[k] ? " " + PAL_SCHEMA.emojis[k] : "") + " ";
+ }
  
  const t=document.createElement("span");t.className="type";t.textContent=typ(v);l.append(t);d.append(l);
  
@@ -750,7 +779,7 @@ function load(text,name){
         
         data = processedData;
         original = clone(processedData);
-        fileName = name.replace(/\.json$/i,"")+"_configured.json";
+        fileName = name;
         table = Object.keys(processedData)[0]||null;
         row = null;
         
