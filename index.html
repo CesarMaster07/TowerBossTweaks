@@ -99,7 +99,6 @@ details.group-details[open] summary { border-bottom: 1px solid var(--line); }
     <div class="drop-text"><b>Load a JSON file</b><br><span class="muted">Drag & drop or choose one</span><br><br>
     <label class="filebtn primary">Choose JSON</label></div>
 </div>
-<!-- New Load Button (Replaces drop zone after load) -->
 <button id="load-new" class="navbtn" style="display:none; margin-bottom: 16px; border: 1px dashed var(--line);" onclick="document.getElementById('file').click()" title="Load New JSON">
     <span class="btn-icon">📁</span><span class="btn-text">Load New JSON</span>
 </button>
@@ -174,7 +173,8 @@ const PAL_SCHEMA = {
         "WorkSuitability_ProductMedicine": "Assets/Medicine.png",
         "WorkSuitability_Cool": "Assets/Cooling.png",
         "WorkSuitability_Transport": "Assets/Transporting.png",
-        "WorkSuitability_MonsterFarm": "Assets/Farming.png"
+        "WorkSuitability_MonsterFarm": "Assets/Farming.png",
+        "WorkSuitability_OilExtraction": "Assets/crudeOilExtraction.png"
     },
     effectNameMap: {
         "EPalPassiveSkillEffectType::MaxHP": "Max Health",
@@ -211,11 +211,7 @@ const PAL_SCHEMA = {
         "WorkSuitability_OilExtraction": "Oil Extraction"
     },
     emojis: {
-        "WorkSuitability_EmitFlame": "🔥", "WorkSuitability_Watering": "💧", "WorkSuitability_Seeding": "🌱",
-        "WorkSuitability_GenerateElectricity": "⚡", "WorkSuitability_Handcraft": "🛠️", "WorkSuitability_Collection": "🧺",
-        "WorkSuitability_Deforest": "🪓", "WorkSuitability_Mining": "⛏️", "WorkSuitability_ProductMedicine": "💊", 
-        "WorkSuitability_Cool": "❄️", "WorkSuitability_Transport": "📦", "WorkSuitability_MonsterFarm": "🐑",
-        "WorkSuitability_OilExtraction": "🛢️", "Hp": "❤️", "MeleeAttack": "⚔️", "Defense": "🛡️", "CraftSpeed": "🔨", "Support": "🤝"
+        "Hp": "❤️", "MeleeAttack": "⚔️", "Defense": "🛡️", "CraftSpeed": "🔨", "Support": "🤝"
     },
     dropdowns: {
         "EPalElementType": [
