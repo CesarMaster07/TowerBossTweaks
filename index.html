@@ -78,7 +78,7 @@ details.group-details[open] summary { border-bottom: 1px solid var(--line); }
 .pal-suitability-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #1a1c22; border-right: 1px solid #1a1c22; }
 .pal-suitability-item:nth-child(even) { border-right: none; }
 .pal-suitability-item span:first-child { display: flex; align-items: center; }
-.suit-icon { width: 16px; height: 16px; object-fit: contain; border-radius: 2px; }
+.suit-icon { width: 24px; height: 24px; object-fit: contain; border-radius: 3px; }
 .pal-suitability-val { font-weight: bold; color: #fff; }
 .pal-suitability-val.zero { color: #555; }
 
@@ -573,7 +573,7 @@ function field(k,v,path){
  const suitIcon = PAL_SCHEMA.suitabilityIcons[k];
  
  if(suitIcon) {
-    l.innerHTML = `<img src="${suitIcon}" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;border-radius:2px;"> ${mappedName} `;
+    l.innerHTML = `<img src="${suitIcon}" style="width:20px;height:20px;vertical-align:middle;margin-right:6px;border-radius:3px;"> ${mappedName} `;
  } else {
     l.textContent = mappedName + (PAL_SCHEMA.emojis[k] ? " " + PAL_SCHEMA.emojis[k] : "") + " ";
  }
