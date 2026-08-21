@@ -78,7 +78,7 @@ details.group-details[open] summary { border-bottom: 1px solid var(--line); }
 .pal-suitability-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #1a1c22; border-right: 1px solid #1a1c22; }
 .pal-suitability-item:nth-child(even) { border-right: none; }
 .pal-suitability-item span:first-child { display: flex; align-items: center; }
-.suit-icon { width: 24px; height: 24px; object-fit: contain; border-radius: 3px; }
+.suit-icon { width: 20px; height: 20px; object-fit: contain; border-radius: 3px; }
 .pal-suitability-val { font-weight: bold; color: #fff; }
 .pal-suitability-val.zero { color: #555; }
 
@@ -99,10 +99,11 @@ details.group-details[open] summary { border-bottom: 1px solid var(--line); }
     <div class="drop-text"><b>Load a JSON file</b><br><span class="muted">Drag & drop or choose one</span><br><br>
     <label class="filebtn primary">Choose JSON</label></div>
 </div>
+<!-- New Load Button (Replaces drop zone after load) -->
 <button id="load-new" class="navbtn" style="display:none; margin-bottom: 16px; border: 1px dashed var(--line);" onclick="document.getElementById('file').click()" title="Load New JSON">
     <span class="btn-icon">📁</span><span class="btn-text">Load New JSON</span>
 </button>
-<input id="file" type="file" accept=".json,application/json" onclick="event.stopPropagation()">
+<input id="file" type="file" accept=".json,application/json,.jsonc" onclick="event.stopPropagation()">
 <div id="nav"></div>
 </aside><section>
 <div class="toolbar">
@@ -110,7 +111,7 @@ details.group-details[open] summary { border-bottom: 1px solid var(--line); }
     <button id="reset" class="danger" disabled>Reset</button>
     <span id="status" class="status">No file loaded</span>
 </div>
-<div id="editor" class="empty">Load a valid <code>.json</code> file to begin.</div>
+<div id="editor" class="empty">Load a valid <code>.json</code> or <code>.jsonc</code> file to begin.</div>
 </section></main>
 <script>
 // ==========================================
@@ -120,12 +121,14 @@ const PAL_SCHEMA = {
     tableNames: {
         "DT_PalHumanParameter": "Human Parameters",
         "DT_PassiveSkill_Main": "Passive Skills",
-        "DT_WazaMasterLevel": "Learned Skills (Level Up)"
+        "DT_WazaMasterLevel": "Learned Skills (Level Up)",
+        "DT_PalDropItem": "Drop Items"
     },
     tableIcons: {
         "DT_PalHumanParameter": "⚙️",
         "DT_PassiveSkill_Main": "🧬",
-        "DT_WazaMasterLevel": "📖"
+        "DT_WazaMasterLevel": "📖",
+        "DT_PalDropItem": "🎁"
     },
     rowNames: {
         "GrassBoss": "Zoe",
@@ -136,7 +139,9 @@ const PAL_SCHEMA = {
         "SakurajimaBoss": "Saya",
         "VikingBoss": "Bjorn",
         "Auri": "Auri",
-        "Zenara": "Zenara"
+        "Zenara": "Zenara",
+        "EXEC_Raiden": "Raiden",
+        "EXEC_Raiden_BOSS": "Raiden (Boss)"
     },
     rowIcons: {
         "GrassBoss": "Assets/Zoe.png",
@@ -193,7 +198,10 @@ const PAL_SCHEMA = {
         "EPalPassiveSkillEffectType::EarthAttack": "Ground Damage",
         "EPalPassiveSkillEffectType::DarkAttack": "Dark Damage",
         "EPalPassiveSkillEffectType::DragonAttack": "Dragon Damage",
-        "EPalPassiveSkillEffectType::WorldTreeDecayImmunity": "WorldTreeDecayImmunity"
+        "EPalPassiveSkillEffectType::WorldTreeDecayImmunity": "WorldTreeDecayImmunity",
+        "EPalPassiveSkillEffectType::ActiveSkillCoolTime_Decrease": "Skill Cooldown",
+        "EPalPassiveSkillEffectType::ElementBoost_Electricity": "Lightning Boost",
+        "EPalPassiveSkillEffectType::PlayerShield_RecoverStartTimeRate": "Shield Recovery Rate"
     },
     friendlyFieldNames: {
         "WorkSuitability_EmitFlame": "Kindling",
@@ -228,7 +236,9 @@ const PAL_SCHEMA = {
             "EPalPassiveSkillEffectType::WaterAttack", "EPalPassiveSkillEffectType::LeafAttack", 
             "EPalPassiveSkillEffectType::ElectricityAttack", "EPalPassiveSkillEffectType::IceAttack", 
             "EPalPassiveSkillEffectType::EarthAttack", "EPalPassiveSkillEffectType::DarkAttack", 
-            "EPalPassiveSkillEffectType::DragonAttack", "EPalPassiveSkillEffectType::WorldTreeDecayImmunity"
+            "EPalPassiveSkillEffectType::DragonAttack", "EPalPassiveSkillEffectType::WorldTreeDecayImmunity",
+            "EPalPassiveSkillEffectType::ActiveSkillCoolTime_Decrease", "EPalPassiveSkillEffectType::ElementBoost_Electricity",
+            "EPalPassiveSkillEffectType::PlayerShield_RecoverStartTimeRate"
         ],
         "EPalPassiveSkillEffectTargetType": [
             "EPalPassiveSkillEffectTargetType::ToSelf", 
@@ -261,6 +271,10 @@ const typ=x=>x===null?"null":Array.isArray(x)?"array":typeof x;
 $('toggleSidebar').onclick = () => {
     $('main-layout').classList.toggle('collapsed');
 };
+
+function stripJsonComments(dataString) {
+    return dataString.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+}
 
 function checkChanges() {
     if (!data || !original) return;
@@ -313,48 +327,6 @@ function getTooltip(key) {
     return tooltips[key] || `Value for ${key}`;
 }
 
-function rebuildPassiveDescription(r) {
-    let pData = data["DT_PassiveSkill_Main"][r];
-    if(!pData) return;
-    let currentDesc = pData.OverrideDescMsgID || "";
-    
-    let loreText = "";
-    let splitIdx = currentDesc.indexOf("\n\n");
-    if(splitIdx === -1) splitIdx = currentDesc.indexOf("\r\n\r\n");
-    if(splitIdx !== -1) {
-        loreText = currentDesc.substring(splitIdx).trim();
-    } else if (!currentDesc.includes("{EffectValue")) {
-        loreText = currentDesc;
-    }
-
-    let newStats = [];
-    for(let i=1; i<=4; i++) {
-        let eType = pData["EffectType"+i];
-        if(!eType || eType === "EPalPassiveSkillEffectType::None") continue;
-        
-        let eName = PAL_SCHEMA.effectNameMap[eType] || eType.split("::")[1] || eType;
-        
-        if(eType === "EPalPassiveSkillEffectType::WorldTreeDecayImmunity") {
-            newStats.push(eName);
-        } else {
-            newStats.push(`${eName} +{EffectValue${i}}%`);
-        }
-    }
-
-    let finalDesc = newStats.join("\r\n");
-    if(loreText) {
-        finalDesc += (finalDesc ? "\r\n\r\n" : "") + loreText;
-    }
-    
-    pData.OverrideDescMsgID = finalDesc;
-    
-    const txtArea = document.getElementById("textarea_OverrideDescMsgID");
-    if(txtArea) {
-        txtArea.value = finalDesc;
-    }
-    updatePreview();
-}
-
 function updatePreview() {
     if(table === "DT_PalHumanParameter") {
         if(!document.getElementById("preview-hp-text")) return;
@@ -365,7 +337,8 @@ function updatePreview() {
         $("preview-def").textContent = pData.Defense || 0;
         $("preview-work").textContent = pData.CraftSpeed || 0;
 
-        const uiName = pData.OverrideNameTextID || PAL_SCHEMA.rowNames[row] || row;
+        let uiName = pData.OverrideNameTextID;
+        if (!uiName || uiName === "None") uiName = PAL_SCHEMA.rowNames[row] || row;
         if($("preview-name")) $("preview-name").textContent = uiName;
 
         const iconEl = document.getElementById("preview-icon-img");
@@ -410,24 +383,45 @@ function updatePreview() {
         });
     } else if (table === "DT_PassiveSkill_Main") {
         const pData = data[table][row] || {};
-        if($("preview-passive-title")) $("preview-passive-title").textContent = pData.OverrideNameTextID || "None";
+        
+        let uiTitle = pData.OverrideNameTextID;
+        if (!uiTitle || uiTitle === "None") uiTitle = PAL_SCHEMA.rowNames[row] || row;
+        if($("preview-passive-title")) $("preview-passive-title").textContent = uiTitle;
         
         const descEl = $("preview-passive-desc");
         if(descEl) {
-            let desc = pData.OverrideDescMsgID || "";
+            let statsHtml = [];
             for(let i=1; i<=4; i++) {
+                let eType = pData["EffectType"+i];
+                if(!eType || eType === "EPalPassiveSkillEffectType::None") continue;
+                let eName = PAL_SCHEMA.effectNameMap[eType] || eType.split("::")[1] || eType;
                 let val = pData["EffectValue"+i] !== undefined ? pData["EffectValue"+i] : 0;
-                desc = desc.replace(new RegExp(`\\{EffectValue${i}\\}`, 'g'), `<span class="passive-preview-cyan">${val}</span>`);
+                
+                if(eType === "EPalPassiveSkillEffectType::WorldTreeDecayImmunity") {
+                    statsHtml.push(`<div>${eName}</div>`);
+                } else {
+                    let sign = val >= 0 ? "+" : "";
+                    statsHtml.push(`<div>${eName} <span class="passive-preview-cyan">${sign}${val}%</span></div>`);
+                }
             }
-            desc = desc.replace(/\r\n|\n/g, "<br>");
-            descEl.innerHTML = desc;
+            
+            let lore = pData.OverrideDescMsgID || "";
+            // Remove {EffectValue} lines from lore visually to avoid duplication
+            let cleanLore = lore.split(/\r?\n/).filter(line => !line.includes('{EffectValue')).join('<br>').replace(/^(<br>)+|(<br>)+$/g, '');
+            
+            if (cleanLore) {
+                cleanLore = `<div style="margin-top: 16px; color: #8b949e; font-size: 13px;">${cleanLore}</div>`;
+            }
+
+            descEl.innerHTML = statsHtml.join('') + cleanLore;
         }
     }
 }
 
 function buildHumanPreviewBox() {
     const pData = data[table][row] || {};
-    const uiName = pData.OverrideNameTextID || PAL_SCHEMA.rowNames[row] || row;
+    let uiName = pData.OverrideNameTextID;
+    if (!uiName || uiName === "None") uiName = PAL_SCHEMA.rowNames[row] || row;
     const iconSrc = getIconForTarget(row);
     
     let html = `
@@ -476,7 +470,8 @@ function buildHumanPreviewBox() {
 
 function buildPassivePreviewBox() {
     const pData = data[table][row] || {};
-    const title = pData.OverrideNameTextID || "Unknown";
+    let title = pData.OverrideNameTextID;
+    if (!title || title === "None") title = PAL_SCHEMA.rowNames[row] || row;
     
     let html = `
     <div class="passive-preview">
@@ -523,11 +518,12 @@ function nav(){
         b.className="navbtn "+(row===r?"active":"");
         
         let iconSrc = getIconForTarget(r);
-        let uiRowName = PAL_SCHEMA.rowNames[r] || r;
+        let uiRowName = PAL_SCHEMA.rowNames[r];
         
-        if (!PAL_SCHEMA.rowNames[r]) {
-            if (data[table][r] && data[table][r].OverrideNameTextID) {
-                uiRowName = data[table][r].OverrideNameTextID;
+        if (!uiRowName) {
+            let overrideName = data[table][r] && data[table][r].OverrideNameTextID;
+            if (overrideName && overrideName !== "None") {
+                uiRowName = overrideName;
             } else {
                 uiRowName = r;
             }
@@ -584,11 +580,7 @@ function field(k,v,path){
  }
  else if(typeof v==="number"){
     const i=document.createElement("input");i.type="number";i.step=Number.isInteger(v)?"1":"any";i.value=v;
-    i.oninput=()=>{
-        setv(path,i.value===""?0:Number(i.value));
-        if(k.startsWith("EffectValue")) updatePreview();
-    };
-    d.append(i)
+    i.oninput=()=>setv(path,i.value===""?0:Number(i.value));d.append(i)
  }
  else if(optionsList){
     const s = document.createElement("select");
@@ -608,11 +600,7 @@ function field(k,v,path){
         opt.selected = true;
         s.append(opt);
     }
-    s.onchange = () => {
-        setv(path, s.value);
-        if(table === "DT_PalHumanParameter") updatePreview();
-        if(table === "DT_PassiveSkill_Main" && k.startsWith("EffectType")) rebuildPassiveDescription(row);
-    };
+    s.onchange = () => setv(path, s.value);
     d.append(s);
  }
  else if(typeof v==="string"){
@@ -620,14 +608,11 @@ function field(k,v,path){
         const a=document.createElement("textarea");
         a.id = "textarea_OverrideDescMsgID";
         a.value=v;
-        a.oninput=()=>{setv(path,a.value); updatePreview();};
+        a.oninput=()=>setv(path,a.value);
         d.append(a);
     } else {
         const i=document.createElement("input");i.type="text";i.value=v;
-        i.oninput=()=>{
-            setv(path,i.value);
-            if(k === "OverrideNameTextID") updatePreview();
-        };
+        i.oninput=()=>setv(path,i.value);
         d.append(i);
     }
  }
@@ -644,7 +629,8 @@ function edit(){
  if(!row){e.className="empty";e.textContent="Choose a row to begin editing.";return}
  e.className="";e.innerHTML="";const c=document.createElement("div");c.className="card";
  
- const uiRowName = data[table][row]?.OverrideNameTextID || PAL_SCHEMA.rowNames[row] || row;
+ let uiRowName = data[table][row]?.OverrideNameTextID;
+ if (!uiRowName || uiRowName === "None") uiRowName = PAL_SCHEMA.rowNames[row] || row;
  const iconSrc = getIconForTarget(row);
 
  if(table === "DT_WazaMasterLevel") {
@@ -760,15 +746,16 @@ function edit(){
     e.append(c);
  }
  
- $("status").textContent="Editing " + (PAL_SCHEMA.tableNames[table] || table) + " / "+ uiRowName;
+ $("status").textContent="Editing " + (PAL_SCHEMA.tableNames[table] || table) + " / " + uiRowName;
 }
 
 function load(text,name){
     try{
-        const x=JSON.parse(text);
+        const cleanText = stripJsonComments(text);
+        const x=JSON.parse(cleanText);
         if(!x||Array.isArray(x)||typeof x!=="object") throw Error("Root must be an object");
         
-        isFlatFormat = !x.DT_PalHumanParameter && !x.DT_PassiveSkill_Main && !x.DT_WazaMasterLevel;
+        isFlatFormat = !x.DT_PalHumanParameter && !x.DT_PassiveSkill_Main && !x.DT_WazaMasterLevel && !x.DT_PalDropItem;
         
         let processedData = x;
         if(isFlatFormat) {
