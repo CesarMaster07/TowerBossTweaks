@@ -141,7 +141,10 @@ const PAL_SCHEMA = {
         "Auri": "Auri",
         "Zenara": "Zenara",
         "EXEC_Raiden": "Raiden",
-        "EXEC_Raiden_BOSS": "Raiden (Boss)"
+        "EXEC_Raiden_BOSS": "Raiden (Boss)",
+        "IntAgentA": "Informant A",
+        "IntAgentB": "Informant B",
+        "IntAgentC": "Informant C"
     },
     rowIcons: {
         "GrassBoss": "Assets/Zoe.png",
@@ -201,7 +204,16 @@ const PAL_SCHEMA = {
         "EPalPassiveSkillEffectType::WorldTreeDecayImmunity": "WorldTreeDecayImmunity",
         "EPalPassiveSkillEffectType::ActiveSkillCoolTime_Decrease": "Skill Cooldown",
         "EPalPassiveSkillEffectType::ElementBoost_Electricity": "Lightning Boost",
-        "EPalPassiveSkillEffectType::PlayerShield_RecoverStartTimeRate": "Shield Recovery Rate"
+        "EPalPassiveSkillEffectType::PlayerShield_RecoverStartTimeRate": "Shield Recovery Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Normal": "Normal Pal Drop Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Fire": "Fire Pal Drop Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Water": "Water Pal Drop Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Leaf": "Grass Pal Drop Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Electricity": "Electric Pal Drop Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Ice": "Ice Pal Drop Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Earth": "Ground Pal Drop Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Dark": "Dark Pal Drop Rate",
+        "EPalPassiveSkillEffectType::ElementAddItemDrop_Dragon": "Dragon Pal Drop Rate"
     },
     friendlyFieldNames: {
         "WorkSuitability_EmitFlame": "Kindling",
@@ -238,7 +250,12 @@ const PAL_SCHEMA = {
             "EPalPassiveSkillEffectType::EarthAttack", "EPalPassiveSkillEffectType::DarkAttack", 
             "EPalPassiveSkillEffectType::DragonAttack", "EPalPassiveSkillEffectType::WorldTreeDecayImmunity",
             "EPalPassiveSkillEffectType::ActiveSkillCoolTime_Decrease", "EPalPassiveSkillEffectType::ElementBoost_Electricity",
-            "EPalPassiveSkillEffectType::PlayerShield_RecoverStartTimeRate"
+            "EPalPassiveSkillEffectType::PlayerShield_RecoverStartTimeRate",
+            "EPalPassiveSkillEffectType::ElementAddItemDrop_Normal", "EPalPassiveSkillEffectType::ElementAddItemDrop_Fire",
+            "EPalPassiveSkillEffectType::ElementAddItemDrop_Water", "EPalPassiveSkillEffectType::ElementAddItemDrop_Leaf",
+            "EPalPassiveSkillEffectType::ElementAddItemDrop_Electricity", "EPalPassiveSkillEffectType::ElementAddItemDrop_Ice",
+            "EPalPassiveSkillEffectType::ElementAddItemDrop_Earth", "EPalPassiveSkillEffectType::ElementAddItemDrop_Dark",
+            "EPalPassiveSkillEffectType::ElementAddItemDrop_Dragon"
         ],
         "EPalPassiveSkillEffectTargetType": [
             "EPalPassiveSkillEffectTargetType::ToSelf", 
@@ -337,8 +354,11 @@ function updatePreview() {
         $("preview-def").textContent = pData.Defense || 0;
         $("preview-work").textContent = pData.CraftSpeed || 0;
 
-        let uiName = pData.OverrideNameTextID;
-        if (!uiName || uiName === "None") uiName = PAL_SCHEMA.rowNames[row] || row;
+        let uiName = PAL_SCHEMA.rowNames[row];
+        if (!uiName) {
+            uiName = pData.OverrideNameTextID;
+            if (!uiName || uiName === "None") uiName = row;
+        }
         if($("preview-name")) $("preview-name").textContent = uiName;
 
         const iconEl = document.getElementById("preview-icon-img");
@@ -384,8 +404,11 @@ function updatePreview() {
     } else if (table === "DT_PassiveSkill_Main") {
         const pData = data[table][row] || {};
         
-        let uiTitle = pData.OverrideNameTextID;
-        if (!uiTitle || uiTitle === "None") uiTitle = PAL_SCHEMA.rowNames[row] || row;
+        let uiTitle = PAL_SCHEMA.rowNames[row];
+        if (!uiTitle) {
+            uiTitle = pData.OverrideNameTextID;
+            if (!uiTitle || uiTitle === "None") uiTitle = row;
+        }
         if($("preview-passive-title")) $("preview-passive-title").textContent = uiTitle;
         
         const descEl = $("preview-passive-desc");
@@ -406,7 +429,6 @@ function updatePreview() {
             }
             
             let lore = pData.OverrideDescMsgID || "";
-            // Remove {EffectValue} lines from lore visually to avoid duplication
             let cleanLore = lore.split(/\r?\n/).filter(line => !line.includes('{EffectValue')).join('<br>').replace(/^(<br>)+|(<br>)+$/g, '');
             
             if (cleanLore) {
@@ -420,8 +442,11 @@ function updatePreview() {
 
 function buildHumanPreviewBox() {
     const pData = data[table][row] || {};
-    let uiName = pData.OverrideNameTextID;
-    if (!uiName || uiName === "None") uiName = PAL_SCHEMA.rowNames[row] || row;
+    let uiName = PAL_SCHEMA.rowNames[row];
+    if (!uiName) {
+        uiName = pData.OverrideNameTextID;
+        if (!uiName || uiName === "None") uiName = row;
+    }
     const iconSrc = getIconForTarget(row);
     
     let html = `
@@ -470,8 +495,11 @@ function buildHumanPreviewBox() {
 
 function buildPassivePreviewBox() {
     const pData = data[table][row] || {};
-    let title = pData.OverrideNameTextID;
-    if (!title || title === "None") title = PAL_SCHEMA.rowNames[row] || row;
+    let title = PAL_SCHEMA.rowNames[row];
+    if (!title) {
+        title = pData.OverrideNameTextID;
+        if (!title || title === "None") title = row;
+    }
     
     let html = `
     <div class="passive-preview">
@@ -580,7 +608,11 @@ function field(k,v,path){
  }
  else if(typeof v==="number"){
     const i=document.createElement("input");i.type="number";i.step=Number.isInteger(v)?"1":"any";i.value=v;
-    i.oninput=()=>setv(path,i.value===""?0:Number(i.value));d.append(i)
+    i.oninput=()=>{
+        setv(path,i.value===""?0:Number(i.value));
+        if(k.startsWith("EffectValue")) updatePreview();
+    };
+    d.append(i)
  }
  else if(optionsList){
     const s = document.createElement("select");
@@ -600,7 +632,11 @@ function field(k,v,path){
         opt.selected = true;
         s.append(opt);
     }
-    s.onchange = () => setv(path, s.value);
+    s.onchange = () => {
+        setv(path, s.value);
+        if(table === "DT_PalHumanParameter") updatePreview();
+        if(table === "DT_PassiveSkill_Main" && k.startsWith("EffectType")) updatePreview();
+    };
     d.append(s);
  }
  else if(typeof v==="string"){
@@ -608,11 +644,14 @@ function field(k,v,path){
         const a=document.createElement("textarea");
         a.id = "textarea_OverrideDescMsgID";
         a.value=v;
-        a.oninput=()=>setv(path,a.value);
+        a.oninput=()=>{setv(path,a.value); updatePreview();};
         d.append(a);
     } else {
         const i=document.createElement("input");i.type="text";i.value=v;
-        i.oninput=()=>setv(path,i.value);
+        i.oninput=()=>{
+            setv(path,i.value);
+            if(k === "OverrideNameTextID") updatePreview();
+        };
         d.append(i);
     }
  }
@@ -629,8 +668,11 @@ function edit(){
  if(!row){e.className="empty";e.textContent="Choose a row to begin editing.";return}
  e.className="";e.innerHTML="";const c=document.createElement("div");c.className="card";
  
- let uiRowName = data[table][row]?.OverrideNameTextID;
- if (!uiRowName || uiRowName === "None") uiRowName = PAL_SCHEMA.rowNames[row] || row;
+ let uiRowName = PAL_SCHEMA.rowNames[row];
+ if (!uiRowName) {
+     uiRowName = data[table][row]?.OverrideNameTextID;
+     if (!uiRowName || uiRowName === "None") uiRowName = row;
+ }
  const iconSrc = getIconForTarget(row);
 
  if(table === "DT_WazaMasterLevel") {
